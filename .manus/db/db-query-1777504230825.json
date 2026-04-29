@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `session_log` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`characterName` varchar(128) NOT NULL,\n\t`eventType` enum('roll','skill_gained','xp_awarded','xp_spent','incident_activated') NOT NULL,\n\t`description` text NOT NULL,\n\t`metadata` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `session_log_id` PRIMARY KEY(`id`)\n);\nCREATE TABLE `skills` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`characterId` int NOT NULL,\n\t`name` varchar(256) NOT NULL,\n\t`level` int NOT NULL DEFAULT 1,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `skills_id` PRIMARY KEY(`id`)\n)",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XkwVb4v7AT7VCj.bf352544bc52 --database gBAwcJRbDodgjaFt6Ce2jU --execute CREATE TABLE `session_log` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`characterName` varchar(128) NOT NULL,\n\t`eventType` enum('roll','skill_gained','xp_awarded','xp_spent','incident_activated') NOT NULL,\n\t`description` text NOT NULL,\n\t`metadata` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `session_log_id` PRIMARY KEY(`id`)\n);\nCREATE TABLE `skills` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`characterId` int NOT NULL,\n\t`name` varchar(256) NOT NULL,\n\t`level` int NOT NULL DEFAULT 1,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `skills_id` PRIMARY KEY(`id`)\n)",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 178
+}

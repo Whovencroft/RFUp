@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `incidents` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(256) NOT NULL,\n\t`description` text NOT NULL,\n\t`difficulty` int NOT NULL DEFAULT 7,\n\t`isActive` boolean NOT NULL DEFAULT false,\n\t`createdBy` int,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `incidents_id` PRIMARY KEY(`id`)\n)",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XkwVb4v7AT7VCj.bf352544bc52 --database gBAwcJRbDodgjaFt6Ce2jU --execute CREATE TABLE `incidents` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(256) NOT NULL,\n\t`description` text NOT NULL,\n\t`difficulty` int NOT NULL DEFAULT 7,\n\t`isActive` boolean NOT NULL DEFAULT false,\n\t`createdBy` int,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `incidents_id` PRIMARY KEY(`id`)\n)",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 113
+}
