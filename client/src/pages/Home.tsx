@@ -187,7 +187,7 @@ export default function Home() {
               expertise to negotiate with a rogue drone, let them roll for it.
             </p>
             <p className="text-xs font-mono text-muted-foreground border border-border rounded px-3 py-2 bg-card">
-              Shift Supervisor access is granted by the facility administrator via the admin panel.
+              The first operator to sign in is automatically granted Shift Supervisor access and can promote others from the GM Panel.
             </p>
           </div>
         </div>

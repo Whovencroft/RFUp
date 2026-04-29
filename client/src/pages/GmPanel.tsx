@@ -25,6 +25,9 @@ import {
   Loader2,
   ToggleLeft,
   ToggleRight,
+  Users,
+  ShieldCheck,
+  ShieldOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +59,15 @@ export default function GmPanel() {
 
   const [editingDiff, setEditingDiff] = useState<{ id: number; value: number } | null>(null);
 
+  const { data: userList, isLoading: usersLoading } = trpc.gm.listUsers.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "admin",
+  });
+
+  const setRole = trpc.gm.setRole.useMutation({
+    onSuccess: () => { toast.success("Role updated."); utils.gm.listUsers.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+
   if (!isAuthenticated || user?.role !== "admin") {
     return (
       <div className="container py-20 text-center">
@@ -64,8 +76,12 @@ export default function GmPanel() {
             <Lock className="w-5 h-5 text-destructive" />
           </div>
           <h2 className="text-2xl font-display font-semibold text-foreground mb-2">Access Denied</h2>
-          <p className="text-muted-foreground text-sm">
-            Shift Supervisor clearance required. Contact the facility administrator to request elevated access.
+          <p className="text-muted-foreground text-sm mb-3">
+            Shift Supervisor clearance required.
+          </p>
+          <p className="text-xs font-mono text-muted-foreground border border-border rounded px-3 py-2 bg-card text-left">
+            The first person to sign in to this app is automatically granted Shift Supervisor access.
+            That person can then promote others from the GM Panel &rarr; Personnel section.
           </p>
         </div>
       </div>
@@ -225,6 +241,93 @@ export default function GmPanel() {
             ))
           )}
         </div>
+      </div>
+
+      {/* ── Personnel / User Management ── */}
+      <div className="mt-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="w-4 h-4 text-amber-400" />
+          <p className="text-xs font-mono text-muted-foreground tracking-widest">PERSONNEL — SHIFT SUPERVISOR ACCESS</p>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4 max-w-xl">
+          Grant or revoke Shift Supervisor (admin) access for any signed-in operator.
+          Admins can manage incidents, view all player sheets, and promote others.
+        </p>
+        {usersLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left px-4 py-2.5 text-xs font-mono text-muted-foreground font-normal">OPERATOR</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-mono text-muted-foreground font-normal">ROLE</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-mono text-muted-foreground font-normal">LAST SIGN-IN</th>
+                  <th className="px-4 py-2.5"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {(userList ?? []).map((u, idx) => (
+                  <tr key={u.id} className={cn("border-b border-border last:border-0", idx % 2 === 0 ? "bg-card" : "bg-muted/10")}>
+                    <td className="px-4 py-3">
+                      <p className="text-foreground font-medium">{u.name ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{u.email ?? ""}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn(
+                        "text-xs font-mono border rounded px-2 py-0.5",
+                        u.role === "admin"
+                          ? "text-amber-400 border-amber-400/30 bg-amber-400/10"
+                          : "text-muted-foreground border-border bg-muted/30"
+                      )}>
+                        {u.role === "admin" ? "SHIFT SUPERVISOR" : "OPERATOR"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono">
+                      {u.lastSignedIn ? new Date(u.lastSignedIn).toLocaleDateString() : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {u.id !== user?.id ? (
+                        u.role === "admin" ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive gap-1"
+                            disabled={setRole.isPending}
+                            onClick={() => setRole.mutate({ userId: u.id, role: "user" })}
+                          >
+                            <ShieldOff className="w-3.5 h-3.5" />
+                            Revoke
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-muted-foreground hover:text-amber-400 gap-1"
+                            disabled={setRole.isPending}
+                            onClick={() => setRole.mutate({ userId: u.id, role: "admin" })}
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            Promote
+                          </Button>
+                        )
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50 font-mono px-2">you</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {(!userList || userList.length === 0) && (
+              <div className="text-center py-8">
+                <p className="text-xs text-muted-foreground">No operators have signed in yet.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create Incident Dialog */}

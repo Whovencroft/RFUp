@@ -32,3 +32,11 @@
 - [x] Empty states and loading skeletons
 - [x] Vitest unit tests (11 tests, 2 test files, all passing)
 - [x] Final checkpoint and delivery
+
+## Fix: Shift Supervisor Access Flow
+- [x] Auto-promote OWNER_OPEN_ID to admin on login (already in db.ts upsertUser — verified)
+- [x] Add backend: getAllUsers query helper
+- [x] Add backend: gm.listUsers and gm.setRole tRPC procedures
+- [x] Add frontend: Personnel section in GM Panel (list users, promote/demote)
+- [x] Fix landing page copy — accurate Shift Supervisor explanation
+- [x] Add clear Shift Supervisor explanation on home page and access-denied screen

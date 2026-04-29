@@ -187,6 +187,30 @@ export async function addSessionLogEntry(data: InsertSessionLogEntry) {
   await db.insert(sessionLog).values(data);
 }
 
+// ── Admin: User Management ────────────────────────────────────────────────
+
+export async function getAllUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      createdAt: users.createdAt,
+      lastSignedIn: users.lastSignedIn,
+    })
+    .from(users)
+    .orderBy(desc(users.createdAt));
+}
+
+export async function setUserRole(userId: number, role: "user" | "admin") {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(users).set({ role }).where(eq(users.id, userId));
+}
+
 // ── Seed Incidents ─────────────────────────────────────────────────────────
 
 export async function seedIncidentsIfEmpty() {

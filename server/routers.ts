@@ -18,6 +18,8 @@ import {
   getRecentSessionLog,
   addSessionLogEntry,
   seedIncidentsIfEmpty,
+  getAllUsers,
+  setUserRole,
 } from "./db";
 
 // ── Admin guard ────────────────────────────────────────────────────────────
@@ -257,9 +259,7 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return getRecentSessionLog(input?.limit ?? 50);
       }),
-  }),
-
-  // ── GM: All player sheets ─────────────────────────────────────────────────
+  }),  // ── GM: All player sheets + user management ─────────────────────────────────
   gm: router({
     allSheets: adminProcedure.query(async () => {
       const chars = await getAllCharacters();
@@ -268,6 +268,29 @@ export const appRouter = router({
       );
       return withSkills;
     }),
+
+    listUsers: adminProcedure.query(async () => {
+      return getAllUsers();
+    }),
+
+    setRole: adminProcedure
+      .input(
+        z.object({
+          userId: z.number().int(),
+          role: z.enum(["user", "admin"]),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        // Prevent self-demotion so there's always at least one admin
+        if (input.userId === ctx.user.id && input.role === "user") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You cannot remove your own Shift Supervisor access.",
+          });
+        }
+        await setUserRole(input.userId, input.role);
+        return { success: true };
+      }),
   }),
 });
 
