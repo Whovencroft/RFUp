@@ -40,3 +40,7 @@
 - [x] Add frontend: Personnel section in GM Panel (list users, promote/demote)
 - [x] Fix landing page copy — accurate Shift Supervisor explanation
 - [x] Add clear Shift Supervisor explanation on home page and access-denied screen
+
+## Fix: GM Panel Usability
+- [x] Restructure GM Panel into tabs: Incidents / Operator Files / Personnel
+- [x] Personnel tab must be immediately visible without scrolling
