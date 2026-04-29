@@ -18,6 +18,9 @@ vi.mock("./db", () => ({
   getRecentSessionLog: vi.fn(),
   addSessionLogEntry: vi.fn(),
   seedIncidentsIfEmpty: vi.fn(),
+  clearSessionLog: vi.fn().mockResolvedValue(undefined),
+  getAllUsers: vi.fn().mockResolvedValue([]),
+  setUserRole: vi.fn().mockResolvedValue(undefined),
 }));
 
 import * as db from "./db";
@@ -168,5 +171,23 @@ describe("sessionLog.recent", () => {
     const result = await caller.sessionLog.recent();
     expect(result).toHaveLength(1);
     expect(result[0].characterName).toBe("Agent Torres");
+  });
+});
+
+// ── GM: clearSessionLog tests ───────────────────────────────────────────────
+describe("gm.clearSessionLog", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("allows admin to clear the session log", async () => {
+    vi.mocked(db.clearSessionLog).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.gm.clearSessionLog();
+    expect(result).toEqual({ success: true });
+    expect(db.clearSessionLog).toHaveBeenCalledOnce();
+  });
+
+  it("blocks non-admin from clearing the session log", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.gm.clearSessionLog()).rejects.toThrow("Shift Supervisor access required");
   });
 });

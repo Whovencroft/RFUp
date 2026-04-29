@@ -27,6 +27,8 @@ import {
   ShieldCheck,
   ShieldOff,
   AlertTriangle,
+  Trash2,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +76,17 @@ export default function GmPanel() {
     onError: (e) => toast.error(e.message),
   });
 
+  const clearLog = trpc.gm.clearSessionLog.useMutation({
+    onSuccess: () => {
+      toast.success("Session log cleared. New shift started.");
+      setConfirmClear(false);
+      utils.sessionLog.recent.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const [showCreate, setShowCreate] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newDiff, setNewDiff] = useState(7);
@@ -147,6 +159,10 @@ export default function GmPanel() {
                 {sheets.length}
               </span>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="session-log" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+            <ScrollText className="w-3.5 h-3.5" />
+            Session Log
           </TabsTrigger>
           <TabsTrigger value="personnel" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <Users className="w-3.5 h-3.5" />
@@ -254,6 +270,57 @@ export default function GmPanel() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* ── Session Log Tab ── */}
+        <TabsContent value="session-log" className="mt-0">
+          <div className="p-5 rounded-xl border border-border bg-card">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p className="text-xs font-mono text-primary mb-1 tracking-widest">SESSION LOG</p>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Clear the session log to start a fresh shift. All roll history, XP events, and skill gains
+                  will be permanently removed from the feed.
+                </p>
+              </div>
+            </div>
+
+            {!confirmClear ? (
+              <Button
+                variant="outline"
+                className="gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive mt-2"
+                onClick={() => setConfirmClear(true)}
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear Session Log
+              </Button>
+            ) : (
+              <div className="mt-2 p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+                <p className="text-sm font-semibold text-destructive mb-1">Confirm: Clear all session log entries?</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  This cannot be undone. All roll history, XP events, and skill gains will be permanently removed.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
+                    disabled={clearLog.isPending}
+                    onClick={() => clearLog.mutate()}
+                  >
+                    {clearLog.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    Yes, clear the log
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmClear(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         {/* ── Operator Files Tab ── */}

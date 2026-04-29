@@ -44,3 +44,9 @@
 ## Fix: GM Panel Usability
 - [x] Restructure GM Panel into tabs: Incidents / Operator Files / Personnel
 - [x] Personnel tab must be immediately visible without scrolling
+
+## Feature: Active Incident Banner + Session Reset
+- [x] Add backend: clearSessionLog helper in db.ts
+- [x] Add backend: gm.clearSessionLog adminProcedure in routers.ts
+- [x] Add frontend: active incident banner on Play page (title, description, difficulty)
+- [x] Add frontend: session reset button in GM Panel (Session Log tab)

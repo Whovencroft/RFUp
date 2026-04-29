@@ -14,7 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Dices, Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X } from "lucide-react";
+import { Dices, Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X, AlertTriangle } from "lucide-react";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 // ── Dice Face ──────────────────────────────────────────────────────────────
 function DieFace({ value, rolling, isSix }: { value: number; rolling: boolean; isSix: boolean }) {
@@ -144,6 +145,23 @@ export default function Play() {
     enabled: isAuthenticated,
     refetchInterval: 5000,
   });
+
+  // Active incident — poll every 10s so the banner stays live during a session
+  const { data: activeIncidents } = trpc.incidents.list.useQuery(undefined, {
+    enabled: isAuthenticated,
+    refetchInterval: 10000,
+    select: (data) => data.filter((i) => i.isActive),
+  });
+  // Use the first active incident as the "primary" for auto-syncing difficulty
+  const activeIncident = activeIncidents?.[0] ?? null;
+  const hasMultiple = (activeIncidents?.length ?? 0) > 1;
+
+  // Auto-sync opposing roll when the active incident changes
+  useEffect(() => {
+    if (activeIncident) {
+      setOpposingRoll(activeIncident.difficulty);
+    }
+  }, [activeIncident?.id, activeIncident?.difficulty]);
 
   const [editingChar, setEditingChar] = useState(false);
 
@@ -324,6 +342,40 @@ export default function Play() {
 
         {/* ── Right: Dice Roller ── */}
         <div className="lg:col-span-2 space-y-4">
+
+          {/* Active Incident Banner */}
+          {activeIncidents && activeIncidents.length > 0 ? (
+            <div className="space-y-2">
+              {activeIncidents.map((inc) => (
+                <div key={inc.id} className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/5 flex items-start gap-3">
+                  <div className="mt-0.5 shrink-0 w-7 h-7 rounded-md bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-mono text-amber-400 tracking-widest">ACTIVE INCIDENT</span>
+                      <span className="text-xs font-mono border border-amber-500/30 bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded">
+                        DC {inc.difficulty}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">{inc.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{inc.description}</p>
+                  </div>
+                </div>
+              ))}
+              {hasMultiple && (
+                <p className="text-xs text-muted-foreground font-mono px-1">
+                  Multiple incidents active — opposing roll auto-set to DC {activeIncident?.difficulty}.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="p-3 rounded-xl border border-border bg-muted/20 flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-muted-foreground/50" />
+              <p className="text-xs text-muted-foreground font-mono">No active incident — Shift Supervisor has not set a scenario.</p>
+            </div>
+          )}
+
           <div className="p-5 rounded-xl border border-border bg-card">
             <p className="text-xs font-mono text-primary mb-3 tracking-widest">DICE ROLLER</p>
 

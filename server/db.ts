@@ -187,6 +187,14 @@ export async function addSessionLogEntry(data: InsertSessionLogEntry) {
   await db.insert(sessionLog).values(data);
 }
 
+// ── Session Log: Clear ─────────────────────────────────────────────────────────
+
+export async function clearSessionLog() {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(sessionLog);
+}
+
 // ── Admin: User Management ────────────────────────────────────────────────
 
 export async function getAllUsers() {

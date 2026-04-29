@@ -20,6 +20,7 @@ import {
   seedIncidentsIfEmpty,
   getAllUsers,
   setUserRole,
+  clearSessionLog,
 } from "./db";
 
 // ── Admin guard ────────────────────────────────────────────────────────────
@@ -291,6 +292,11 @@ export const appRouter = router({
         await setUserRole(input.userId, input.role);
         return { success: true };
       }),
+
+    clearSessionLog: adminProcedure.mutation(async () => {
+      await clearSessionLog();
+      return { success: true };
+    }),
   }),
 });
 
