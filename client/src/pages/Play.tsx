@@ -14,7 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Dices, Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X, AlertTriangle } from "lucide-react";
+import { Dices, Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X, AlertTriangle, Printer } from "lucide-react";
+import { Link } from "wouter";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 // ── Dice Face ──────────────────────────────────────────────────────────────
@@ -279,11 +280,21 @@ export default function Play() {
           <div className="p-5 rounded-xl border border-border bg-card">
             <div className="flex items-start justify-between mb-1">
               <p className="text-xs font-mono text-primary tracking-widest">OPERATOR FILE</p>
-              {!editingChar && (
-                <button onClick={() => setEditingChar(true)} className="text-muted-foreground hover:text-foreground transition-colors">
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/print"
+                  target="_blank"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Print character sheet"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                </Link>
+                {!editingChar && (
+                  <button onClick={() => setEditingChar(true)} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
             {editingChar ? (
               <CharacterEdit character={character} onDone={() => setEditingChar(false)} />

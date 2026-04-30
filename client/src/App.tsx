@@ -9,24 +9,36 @@ import Play from "./pages/Play";
 import Incidents from "./pages/Incidents";
 import SessionLog from "./pages/SessionLog";
 import GmPanel from "./pages/GmPanel";
+import PrintSheet from "./pages/PrintSheet";
 import NavBar from "./components/NavBar";
 
 function Router() {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <NavBar />
-      <main className="flex-1">
-        <Switch>
-          <Route path="/" component={Home} />
-          <Route path="/play" component={Play} />
-          <Route path="/incidents" component={Incidents} />
-          <Route path="/log" component={SessionLog} />
-          <Route path="/gm" component={GmPanel} />
-          <Route path="/404" component={NotFound} />
-          <Route component={NotFound} />
-        </Switch>
-      </main>
-    </div>
+    <Switch>
+      {/* Print route: no nav chrome, white background */}
+      <Route path="/print">
+        <div className="min-h-screen bg-white">
+          <PrintSheet />
+        </div>
+      </Route>
+      {/* All other routes: standard dark layout with NavBar */}
+      <Route>
+        <div className="min-h-screen bg-background flex flex-col">
+          <NavBar />
+          <main className="flex-1">
+            <Switch>
+              <Route path="/" component={Home} />
+              <Route path="/play" component={Play} />
+              <Route path="/incidents" component={Incidents} />
+              <Route path="/log" component={SessionLog} />
+              <Route path="/gm" component={GmPanel} />
+              <Route path="/404" component={NotFound} />
+              <Route component={NotFound} />
+            </Switch>
+          </main>
+        </div>
+      </Route>
+    </Switch>
   );
 }
 

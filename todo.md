@@ -50,3 +50,10 @@
 - [x] Add backend: gm.clearSessionLog adminProcedure in routers.ts
 - [x] Add frontend: active incident banner on Play page (title, description, difficulty)
 - [x] Add frontend: session reset button in GM Panel (Session Log tab)
+
+## Feature: Printable Character Sheet + GM Panel Fix
+- [x] Fix GM Panel: default tab to Personnel so user management is immediately visible
+- [x] Build /print page: printer-friendly character sheet (name, job title, skills, XP, rules reference)
+- [x] Add "Print Character Sheet" link on the Play page (printer icon in OPERATOR FILE header)
+- [x] Register /print route in App.tsx (no NavBar, white background)
+- [x] Hide navbar and UI chrome on /print (print CSS via @media print)

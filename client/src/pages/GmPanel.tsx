@@ -140,7 +140,7 @@ export default function GmPanel() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="incidents" className="w-full">
+      <Tabs defaultValue="personnel" className="w-full">
         <TabsList className="bg-muted/30 border border-border mb-6 h-10">
           <TabsTrigger value="incidents" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <AlertTriangle className="w-3.5 h-3.5" />
