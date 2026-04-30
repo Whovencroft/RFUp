@@ -4,13 +4,21 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Bot,
   User,
   ChevronLeft,
-  Dices,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -18,6 +26,8 @@ import {
   Zap,
   Printer,
   Star,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 
 // ── Die Face ─────────────────────────────────────────────────────────────────
@@ -37,9 +47,7 @@ function DieFace({ value, size = "md" }: { value: number; size?: "sm" | "md" }) 
   return (
     <div
       className={`relative ${dim} rounded-md border-2 flex items-center justify-center shrink-0 ${
-        isSix
-          ? "border-primary bg-primary/20"
-          : "border-border bg-card"
+        isSix ? "border-primary bg-primary/20" : "border-border bg-card"
       }`}
     >
       <svg viewBox="0 0 100 100" className={svgDim}>
@@ -113,14 +121,101 @@ function RulingBadge({ ruling }: { ruling: string | null | undefined }) {
   );
 }
 
-// ── Step indicator ────────────────────────────────────────────────────────────
+// ── Skill Advancement Dialog ──────────────────────────────────────────────────
 
-function StepBadge({ step }: { step: 1 | 2 | 3 }) {
-  const labels = { 1: "DESCRIBE ACTION", 2: "SELECT SKILL & ROLL", 3: "SUBMITTING…" };
+interface SkillAdvancementDialogProps {
+  open: boolean;
+  suggestedName: string;
+  level: number;
+  isLoading: boolean;
+  onConfirm: (name: string, level: number) => void;
+  onDismiss: () => void;
+}
+
+function SkillAdvancementDialog({
+  open,
+  suggestedName,
+  level,
+  isLoading,
+  onConfirm,
+  onDismiss,
+}: SkillAdvancementDialogProps) {
+  const [name, setName] = useState(suggestedName);
+
+  // Sync when suggestion arrives
+  useEffect(() => {
+    if (suggestedName) setName(suggestedName);
+  }, [suggestedName]);
+
   return (
-    <span className="text-xs font-mono text-primary bg-primary/10 border border-primary/20 rounded px-2 py-0.5">
-      STEP {step}: {labels[step]}
-    </span>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onDismiss(); }}>
+      <DialogContent className="bg-card border-border max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-serif text-foreground flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            All Sixes — New Skill Unlocked
+          </DialogTitle>
+          <DialogDescription className="text-muted-foreground text-sm">
+            You rolled all 6s. In Roll for Shoes, that earns you a new, more specific skill.
+            The AI has suggested a name based on what you just did — edit it if you want, then confirm.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-2 space-y-3">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Generating skill name…
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono text-muted-foreground tracking-widest">
+                  NEW SKILL NAME
+                </label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="bg-background border-border text-foreground font-semibold"
+                  placeholder="e.g. Override Tailgating Lockout Protocol"
+                  maxLength={100}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-muted-foreground">LEVEL</span>
+                <span className="text-sm font-bold text-primary font-mono">{level}</span>
+                <div className="flex items-center gap-0.5 ml-1">
+                  {Array.from({ length: level }).map((_, i) => (
+                    <Star key={i} className="w-3 h-3 text-primary fill-primary" />
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Remember: each new skill must be more specific than the one it derives from.
+              </p>
+            </>
+          )}
+        </div>
+
+        <DialogFooter className="flex-row gap-2 justify-start sm:justify-start">
+          <Button
+            onClick={() => onConfirm(name.trim(), level)}
+            disabled={isLoading || !name.trim()}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 font-mono text-xs gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Add to Manifest
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={onDismiss}
+            className="text-muted-foreground hover:text-foreground font-mono text-xs"
+          >
+            Skip
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -132,12 +227,20 @@ export default function AiSession() {
   const { user } = useAuth();
   const feedRef = useRef<HTMLDivElement>(null);
 
-  // Three-step flow state
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Input state
   const [actionText, setActionText] = useState("");
-  const [selectedSkill, setSelectedSkill] = useState<{ name: string; level: number } | null>(null);
-  const [rolledDice, setRolledDice] = useState<number[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Dice animation state (shown inline in feed area while rolling)
+  const [pendingSkill, setPendingSkill] = useState<{ name: string; level: number } | null>(null);
+  const [pendingDice, setPendingDice] = useState<number[]>([]);
   const [isRolling, setIsRolling] = useState(false);
+
+  // Skill advancement dialog state
+  const [advancementOpen, setAdvancementOpen] = useState(false);
+  const [suggestedSkillName, setSuggestedSkillName] = useState("");
+  const [suggestedSkillLevel, setSuggestedSkillLevel] = useState(2);
+  const [isSuggestingName, setIsSuggestingName] = useState(false);
 
   const { data: session, refetch: refetchSession } = trpc.aiGm.getSession.useQuery(
     { sessionId },
@@ -149,9 +252,8 @@ export default function AiSession() {
     { enabled: !!sessionId, refetchInterval: 5000 }
   );
 
-  const { data: myChar } = trpc.character.get.useQuery();
+  const { data: myChar, refetch: refetchChar } = trpc.character.get.useQuery();
 
-  // Build allies list from session player order (everyone except self)
   const playerOrder: number[] = JSON.parse(session?.playerOrder || "[]");
   const { data: allChars } = trpc.character.listAll.useQuery(
     undefined,
@@ -164,17 +266,41 @@ export default function AiSession() {
   const submitAction = trpc.aiGm.submitAction.useMutation({
     onSuccess: () => {
       setActionText("");
-      setSelectedSkill(null);
-      setRolledDice([]);
-      setStep(1);
+      setPendingSkill(null);
+      setPendingDice([]);
+      setIsSubmitting(false);
       refetchMessages();
       refetchSession();
-      toast.success("Action submitted.");
     },
     onError: (e) => {
       toast.error(e.message);
-      setStep(2);
+      setIsSubmitting(false);
     },
+  });
+
+  const suggestName = trpc.skills.suggestName.useMutation({
+    onSuccess: (data) => {
+      setSuggestedSkillName(data.suggestedName);
+      setSuggestedSkillLevel(data.level);
+      setIsSuggestingName(false);
+    },
+    onError: (_err, variables) => {
+      // Deterministic fallback: derive a name from the action text
+      const words = variables.actionDescription.trim().split(/\s+/).slice(0, 5);
+      const fallback = words.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      setSuggestedSkillName(fallback || `${variables.usedSkillName} Specialist`);
+      setSuggestedSkillLevel(variables.usedSkillLevel + 1);
+      setIsSuggestingName(false);
+    },
+  });
+
+  const addSkill = trpc.skills.add.useMutation({
+    onSuccess: () => {
+      toast.success("New skill added to your manifest.");
+      setAdvancementOpen(false);
+      refetchChar();
+    },
+    onError: (e) => toast.error(e.message),
   });
 
   // Auto-scroll feed to bottom
@@ -182,33 +308,60 @@ export default function AiSession() {
     if (feedRef.current) {
       feedRef.current.scrollTop = feedRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isRolling]);
 
-  // Roll dice for selected skill
-  const rollSkill = useCallback((skill: { name: string; level: number }) => {
-    setSelectedSkill(skill);
-    setIsRolling(true);
-    const results = Array.from({ length: skill.level }, () => Math.floor(Math.random() * 6) + 1);
-    // Let animation play for ~1s before marking settled
-    setTimeout(() => {
-      setRolledDice(results);
-      setIsRolling(false);
-    }, 900);
-  }, []);
+  // Roll dice for selected skill — auto-submits after animation
+  const rollAndSubmit = useCallback(
+    (skill: { name: string; level: number }) => {
+      if (!actionText.trim()) {
+        toast.error("Describe your action first.");
+        return;
+      }
+      if (isSubmitting || isRolling) return;
 
-  function handleSubmit() {
-    if (!actionText.trim()) return toast.error("Describe your action first.");
-    if (!selectedSkill) return toast.error("Select a skill to roll.");
-    if (rolledDice.length === 0) return toast.error("Roll your dice first.");
-    setStep(3);
-    submitAction.mutate({
-      sessionId,
-      actionDescription: actionText.trim(),
-      skillName: selectedSkill.name,
-      skillLevel: selectedSkill.level,
-      diceResults: rolledDice,
-    });
-  }
+      const results = Array.from({ length: skill.level }, () => Math.floor(Math.random() * 6) + 1);
+      setPendingSkill(skill);
+      setPendingDice(results);
+      setIsRolling(true);
+
+      // After animation settles (~900ms), auto-submit
+      setTimeout(() => {
+        setIsRolling(false);
+        setIsSubmitting(true);
+
+        const allSixes = results.every((d) => d === 6);
+        const xp = myChar?.xp ?? 0;
+        // Count how many dice are below 6 — that's how many XP needed to convert to all 6s
+        const nonSixCount = results.filter((d) => d < 6).length;
+        const canUpgradeWithXp = !allSixes && nonSixCount > 0 && xp >= nonSixCount;
+
+        submitAction.mutate(
+          {
+            sessionId,
+            actionDescription: actionText.trim(),
+            skillName: skill.name,
+            skillLevel: skill.level,
+            diceResults: results,
+          },
+          {
+            onSettled: () => {
+              // After AI responds, check for advancement
+              if (allSixes || canUpgradeWithXp) {
+                setIsSuggestingName(true);
+                setAdvancementOpen(true);
+                suggestName.mutate({
+                  actionDescription: actionText.trim(),
+                  usedSkillName: skill.name,
+                  usedSkillLevel: skill.level,
+                });
+              }
+            },
+          }
+        );
+      }, 950);
+    },
+    [actionText, isSubmitting, isRolling, myChar?.xp, sessionId, submitAction, suggestName]
+  );
 
   if (!session) {
     return (
@@ -221,7 +374,6 @@ export default function AiSession() {
   const isMyTurn = session.currentTurnUserId === user?.id;
   const isEnded = session.status === "ended";
 
-  // Skills to show in manifest — always include Do Anything 1 as fallback
   const skills = myChar?.skills && myChar.skills.length > 0
     ? myChar.skills
     : [{ id: 0, name: "Do Anything", level: 1 }];
@@ -301,39 +453,37 @@ export default function AiSession() {
             )}
           </div>
 
-          {/* Skill Manifest — scrollable */}
+          {/* Skill Manifest — scrollable, click to roll + auto-submit */}
           <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
             <p className="text-xs font-mono text-muted-foreground tracking-widest px-1 mb-2">SKILL MANIFEST</p>
+            {isMyTurn && !isEnded && !isSubmitting && !isRolling && (
+              <p className="text-xs text-muted-foreground font-mono px-1 mb-3 leading-relaxed">
+                Describe your action below, then click a skill to roll and submit automatically.
+              </p>
+            )}
             {skills.map((s) => {
-              const isSelected = selectedSkill?.name === s.name && selectedSkill?.level === s.level;
+              const isActive = pendingSkill?.name === s.name && pendingSkill?.level === s.level;
+              const canClick = isMyTurn && !isEnded && !isSubmitting && !isRolling;
               return (
                 <button
                   key={s.id}
-                  onClick={() => {
-                    if (!isMyTurn || isEnded || step === 3) return;
-                    if (step === 1 && !actionText.trim()) {
-                      toast.error("Describe your action first (Step 1).");
-                      return;
-                    }
-                    setStep(2);
-                    rollSkill({ name: s.name, level: s.level });
-                  }}
-                  disabled={!isMyTurn || isEnded || step === 3}
-                  className={`w-full text-left rounded-lg border px-3 py-2.5 transition-all group ${
-                    isSelected
+                  onClick={() => canClick && rollAndSubmit({ name: s.name, level: s.level })}
+                  disabled={!canClick}
+                  className={`w-full text-left rounded-lg border px-3 py-2.5 transition-all ${
+                    isActive
                       ? "border-primary/60 bg-primary/10"
                       : "border-border bg-card hover:border-primary/30 hover:bg-primary/5"
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
+                    <span className={`text-sm font-semibold truncate ${isActive ? "text-primary" : "text-foreground"}`}>
                       {s.name}
                     </span>
                     <div className="flex items-center gap-0.5 shrink-0">
                       {Array.from({ length: s.level }).map((_, i) => (
                         <Star
                           key={i}
-                          className={`w-2.5 h-2.5 ${isSelected ? "text-primary fill-primary" : "text-muted-foreground fill-muted-foreground"}`}
+                          className={`w-2.5 h-2.5 ${isActive ? "text-primary fill-primary" : "text-muted-foreground fill-muted-foreground"}`}
                         />
                       ))}
                     </div>
@@ -392,11 +542,8 @@ export default function AiSession() {
           )}
 
           {/* Chat Feed */}
-          <div
-            ref={feedRef}
-            className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
-          >
-            {(!messages || messages.length === 0) && (
+          <div ref={feedRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            {(!messages || messages.length === 0) && !isRolling && (
               <div className="text-center text-muted-foreground py-16 text-sm font-mono">
                 Waiting for the shift to begin…
               </div>
@@ -408,7 +555,6 @@ export default function AiSession() {
 
               return (
                 <div key={msg.id} className={`flex gap-3 ${isAi ? "" : "flex-row-reverse"}`}>
-                  {/* Avatar */}
                   <div
                     className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
                       isAi
@@ -419,7 +565,6 @@ export default function AiSession() {
                     {isAi ? <Bot className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
                   </div>
 
-                  {/* Bubble */}
                   <div className={`max-w-[78%] space-y-1.5 ${isAi ? "" : "items-end flex flex-col"}`}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono font-semibold text-foreground">{msg.authorName}</span>
@@ -439,7 +584,6 @@ export default function AiSession() {
                       )}
                     </div>
 
-                    {/* Roll data */}
                     {rollData && (
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {rollData.dice.map((d: number, i: number) => (
@@ -452,7 +596,6 @@ export default function AiSession() {
                       </div>
                     )}
 
-                    {/* Message bubble */}
                     <div
                       className={`rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
                         isAi
@@ -466,6 +609,34 @@ export default function AiSession() {
                 </div>
               );
             })}
+
+            {/* Inline dice animation while rolling */}
+            {isRolling && pendingSkill && pendingDice.length > 0 && (
+              <div className="flex gap-3 flex-row-reverse">
+                <div className="w-7 h-7 rounded-full border bg-muted border-border flex items-center justify-center shrink-0 mt-0.5">
+                  <User className="w-3.5 h-3.5 text-muted-foreground" />
+                </div>
+                <div className="max-w-[78%] space-y-1.5 items-end flex flex-col">
+                  <span className="text-xs font-mono font-semibold text-foreground">{myChar?.name ?? "You"}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {pendingDice.map((d, i) => (
+                      <RollingDie key={i} finalValue={d} delay={i * 80} />
+                    ))}
+                  </div>
+                  <div className="rounded-xl px-3.5 py-2.5 text-sm bg-primary/10 border border-primary/20 text-foreground">
+                    {actionText}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Submitting indicator */}
+            {isSubmitting && !isRolling && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono px-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Shift Supervisor is reviewing…
+              </div>
+            )}
           </div>
 
           {/* ── Bottom Input Area ── */}
@@ -480,78 +651,19 @@ export default function AiSession() {
                 Waiting for another operator to take their turn…
               </div>
             ) : (
-              <div className="px-4 py-3 space-y-2.5">
-                {/* Step indicator */}
-                <div className="flex items-center gap-2">
-                  <StepBadge step={step} />
-                  {step === 2 && selectedSkill && (
-                    <span className="text-xs font-mono text-muted-foreground">
-                      {selectedSkill.name} {selectedSkill.level} selected
-                    </span>
-                  )}
-                </div>
-
-                {/* Step 1: Action description */}
+              <div className="px-4 py-3 space-y-2">
                 <Textarea
-                  placeholder="Describe what you do. Be specific — the more creative, the better the skill you might earn."
+                  placeholder="Describe what you do. Be specific — the more creative, the better the skill you might earn. Then click a skill in your manifest to roll."
                   value={actionText}
-                  onChange={(e) => {
-                    setActionText(e.target.value);
-                    if (step === 2 || step === 3) {
-                      // Allow editing action text but keep skill selected
-                    }
-                  }}
+                  onChange={(e) => setActionText(e.target.value)}
                   className="resize-none bg-card border-border text-foreground placeholder:text-muted-foreground text-sm"
                   rows={2}
-                  disabled={step === 3}
+                  disabled={isSubmitting || isRolling}
                 />
-
-                {/* Step 2: Dice roll preview + submit */}
-                {step >= 2 && selectedSkill && (
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {/* Animated dice */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {isRolling
-                        ? Array.from({ length: selectedSkill.level }).map((_, i) => (
-                            <RollingDie key={i} finalValue={rolledDice[i] ?? 1} delay={i * 80} />
-                          ))
-                        : rolledDice.map((d, i) => <DieFace key={i} value={d} />)
-                      }
-                      {!isRolling && rolledDice.length > 0 && (
-                        <span className="text-sm font-mono text-muted-foreground ml-1">
-                          = <span className="text-foreground font-bold">{rolledDice.reduce((a, b) => a + b, 0)}</span>
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Re-roll */}
-                    {!isRolling && (
-                      <button
-                        onClick={() => rollSkill(selectedSkill)}
-                        className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-                      >
-                        re-roll
-                      </button>
-                    )}
-
-                    {/* Submit */}
-                    {!isRolling && (
-                      <Button
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-8 text-xs font-mono ml-auto"
-                        onClick={handleSubmit}
-                        disabled={submitAction.isPending || isRolling}
-                      >
-                        <Dices className="w-3.5 h-3.5" />
-                        {submitAction.isPending ? "Submitting…" : "Submit Action"}
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {/* Hint when no skill selected */}
-                {step === 1 && (
-                  <p className="text-xs text-muted-foreground font-mono">
-                    After describing your action, select a skill from your manifest on the left to roll.
+                {(isSubmitting || isRolling) && (
+                  <p className="text-xs text-muted-foreground font-mono flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {isRolling ? "Rolling dice…" : "Waiting for AI response…"}
                   </p>
                 )}
               </div>
@@ -559,6 +671,18 @@ export default function AiSession() {
           </div>
         </div>
       </div>
+
+      {/* ── Skill Advancement Dialog ── */}
+      <SkillAdvancementDialog
+        open={advancementOpen}
+        suggestedName={suggestedSkillName}
+        level={suggestedSkillLevel}
+        isLoading={isSuggestingName}
+        onConfirm={(name, level) => {
+          addSkill.mutate({ name, level });
+        }}
+        onDismiss={() => setAdvancementOpen(false)}
+      />
     </div>
   );
 }

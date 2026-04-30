@@ -86,3 +86,10 @@
 - [x] Remove manual dice number entry — replaced with animated in-app roller triggered by skill selection
 - [x] Skill selection in manifest highlights the chosen skill and triggers the roll inline
 - [x] Chat log shows: player action messages, dice roll results, AI narration, skill rulings, DC badges
+
+## Fix: AI Session Dice Flow
+- [x] Auto-submit roll + description when skill is clicked (remove separate Submit button)
+- [x] After auto-submit, if all 6s rolled OR enough XP to convert to all 6s: show skill advancement dialog
+- [x] Skill advancement dialog: AI-generated default name based on action + "more specific than last skill" rule
+- [x] Player can edit the suggested skill name before confirming
+- [x] Move chat input buttons to left side of the input bar (buttons in dialog are left-aligned; input bar has no buttons now)

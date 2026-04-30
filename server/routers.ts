@@ -177,6 +177,35 @@ export const appRouter = router({
       return getSkillsByCharacterId(char.id);
     }),
 
+    // AI suggests a new skill name based on the player's action and existing skills
+    suggestName: protectedProcedure
+      .input(z.object({
+        actionDescription: z.string(),
+        usedSkillName: z.string(),
+        usedSkillLevel: z.number().int(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const char = await getCharacterByUserId(ctx.user.id);
+        if (!char) throw new TRPCError({ code: "NOT_FOUND" });
+        const existingSkills = await getSkillsByCharacterId(char.id);
+        const skillList = existingSkills.map((s) => `"${s.name} ${s.level}"`).join(", ");
+        const newLevel = input.usedSkillLevel + 1;
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are the AI Shift Supervisor for Facility 404, a data center security tabletop RPG using the Roll for Shoes system. In Roll for Shoes, each new skill must be MORE SPECIFIC than the skill it derives from. Skills are named descriptively and tied to specific actions. A skill named "Do Anything 1" can spawn "Badge Reader Expertise 2" or "Aggressive Visitor De-escalation 2". A skill named "Badge Reader Expertise 2" might spawn "Override Tailgating Lockout Protocol 3". The new skill should be funny, specific, and grounded in data center security operations. It should clearly derive from the action the player just took. Return ONLY the skill name, no quotes, no explanation, no punctuation at the end. The name should be 3-6 words. Do not include the level number in the name.`,
+            },
+            {
+              role: "user",
+              content: `The player's character is "${char.name}" (${char.jobTitle}). Their existing skills are: ${skillList || '"Do Anything 1"'}. They just used "${input.usedSkillName} ${input.usedSkillLevel}" and rolled all 6s while doing this: "${input.actionDescription}". Suggest a new skill name at level ${newLevel} that is more specific than "${input.usedSkillName}" and directly inspired by this action.`,
+            },
+          ],
+        });
+        const suggested = (response.choices[0]?.message?.content as string ?? "").trim();
+        return { suggestedName: suggested, level: newLevel };
+      }),
+
     add: protectedProcedure
       .input(z.object({ name: z.string().min(1).max(256), level: z.number().int().min(1).max(10) }))
       .mutation(async ({ ctx, input }) => {
