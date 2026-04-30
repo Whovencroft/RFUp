@@ -11,6 +11,10 @@ import {
   InsertIncident,
   sessionLog,
   InsertSessionLogEntry,
+  aiSessions,
+  InsertAiSession,
+  aiMessages,
+  InsertAiMessage,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -217,6 +221,68 @@ export async function setUserRole(userId: number, role: "user" | "admin") {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.update(users).set({ role }).where(eq(users.id, userId));
+}
+
+// ── AI Sessions ────────────────────────────────────────────────────────────
+
+export async function createAiSession(data: InsertAiSession) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(aiSessions).values(data);
+  const result = await db
+    .select()
+    .from(aiSessions)
+    .orderBy(desc(aiSessions.createdAt))
+    .limit(1);
+  return result[0]!;
+}
+
+export async function getAiSession(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(aiSessions).where(eq(aiSessions.id, id)).limit(1);
+  return result[0];
+}
+
+export async function listAiSessions() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(aiSessions).orderBy(desc(aiSessions.createdAt));
+}
+
+export async function updateAiSession(
+  id: number,
+  data: Partial<Pick<InsertAiSession, "status" | "currentTurnUserId" | "contextSummary" | "playerOrder">>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(aiSessions).set(data).where(eq(aiSessions.id, id));
+}
+
+// ── AI Messages ────────────────────────────────────────────────────────────
+
+export async function addAiMessage(data: InsertAiMessage) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(aiMessages).values(data);
+  const result = await db
+    .select()
+    .from(aiMessages)
+    .where(eq(aiMessages.sessionId, data.sessionId))
+    .orderBy(desc(aiMessages.createdAt))
+    .limit(1);
+  return result[0]!;
+}
+
+export async function getAiMessages(sessionId: number, limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(aiMessages)
+    .where(eq(aiMessages.sessionId, sessionId))
+    .orderBy(aiMessages.createdAt)
+    .limit(limit);
 }
 
 // ── Seed Incidents ─────────────────────────────────────────────────────────

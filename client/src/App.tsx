@@ -10,6 +10,8 @@ import Incidents from "./pages/Incidents";
 import SessionLog from "./pages/SessionLog";
 import GmPanel from "./pages/GmPanel";
 import PrintSheet from "./pages/PrintSheet";
+import Sessions from "./pages/Sessions";
+import AiSession from "./pages/AiSession";
 import NavBar from "./components/NavBar";
 
 function Router() {
@@ -32,6 +34,8 @@ function Router() {
               <Route path="/incidents" component={Incidents} />
               <Route path="/log" component={SessionLog} />
               <Route path="/gm" component={GmPanel} />
+              <Route path="/sessions" component={Sessions} />
+              <Route path="/sessions/:id" component={AiSession} />
               <Route path="/404" component={NotFound} />
               <Route component={NotFound} />
             </Switch>

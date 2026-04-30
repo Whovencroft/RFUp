@@ -62,3 +62,18 @@
 - [x] Rewrite Home page content with a more human, conversational tone (keep rules section as-is)
 - [x] Remove "For the Shift Supervisor" block from Home page
 - [x] Add "For the Shift Supervisor" briefing block to the GM Panel page (amber briefing card above tabs)
+
+## Feature: AI Shift Supervisor (AI-Run Game Mode)
+- [x] DB: ai_sessions table (id, incitingIncidentId, status, playerOrder, currentTurnUserId, contextSummary, createdAt)
+- [x] DB: ai_messages table (id, sessionId, authorId, authorName, authorType, content, rollData, dcSet, skillRuling, isIncidentChain, createdAt)
+- [x] Backend: aiGm router — createSession, getSession, listSessions, endSession, getMessages, submitAction
+- [x] Backend: submitAction — player submits action + dice, AI adjudicates skill, sets DC, narrates outcome
+- [x] Backend: AI system prompt — Roll for Uptime rules, Facility 404 tone, skill adjudication, DC logic, incident chaining
+- [x] Backend: turn order management — advance to next player after AI responds
+- [x] Backend: incident chaining — AI can introduce new incidents mid-session
+- [x] Frontend: GM Panel "AI Sessions" tab — launch session, pick inciting incident, select players, view/end sessions
+- [x] Frontend: AI Session page (/sessions/:id) — shared visible feed, turn indicator, action + dice roll submission form
+- [x] Frontend: Dice roll input in action form — player enters physical roll results, quick-pick from character skills
+- [x] Frontend: AI response display — narration, skill ruling badge, DC badge, incident chain badge inline
+- [x] Frontend: Session status bar — sticky header with turn indicator, sessions list page at /sessions
+- [x] Tests: 13 tests passing (2 test files) — AI procedures covered in mock suite

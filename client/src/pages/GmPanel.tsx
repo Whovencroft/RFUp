@@ -29,7 +29,18 @@ import {
   AlertTriangle,
   Trash2,
   ScrollText,
+  Bot,
+  ChevronRight,
 } from "lucide-react";
+import { Link } from "wouter";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export default function GmPanel() {
@@ -91,6 +102,40 @@ export default function GmPanel() {
   const [newDesc, setNewDesc] = useState("");
   const [newDiff, setNewDiff] = useState(7);
   const [editingDiff, setEditingDiff] = useState<{ id: number; value: number } | null>(null);
+
+  // ── AI Session launcher state ─────────────────────────────────────────────
+  const [aiSessionTitle, setAiSessionTitle] = useState("");
+  const [aiSelectedIncidentId, setAiSelectedIncidentId] = useState<string>("random");
+  const [aiSelectedPlayerIds, setAiSelectedPlayerIds] = useState<number[]>([]);
+
+  const { data: aiSessions, refetch: refetchAiSessions } = trpc.aiGm.listSessions.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "admin",
+  });
+  const { data: allUsers } = trpc.gm.listUsers.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "admin",
+  });
+
+  const createAiSession = trpc.aiGm.createSession.useMutation({
+    onSuccess: (data) => {
+      toast.success("AI session started!");
+      setAiSessionTitle("");
+      setAiSelectedIncidentId("random");
+      setAiSelectedPlayerIds([]);
+      refetchAiSessions();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const endAiSession = trpc.aiGm.endSession.useMutation({
+    onSuccess: () => { toast.success("Session ended."); refetchAiSessions(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function togglePlayer(uid: number) {
+    setAiSelectedPlayerIds((prev) =>
+      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
+    );
+  }
 
   // ── Access denied ──────────────────────────────────────────────────────────
   if (!isAuthenticated || user?.role !== "admin") {
@@ -195,6 +240,15 @@ export default function GmPanel() {
             {userList && userList.filter((u) => u.role === "admin").length > 0 && (
               <span className="ml-1 text-xs font-mono bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30">
                 {userList.filter((u) => u.role === "admin").length} supervisors
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="ai-sessions" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+            <Bot className="w-3.5 h-3.5" />
+            AI Sessions
+            {aiSessions && aiSessions.filter((s) => s.status === "active").length > 0 && (
+              <span className="ml-1 text-xs font-mono bg-primary/20 text-primary px-1.5 py-0.5 rounded border border-primary/30">
+                {aiSessions.filter((s) => s.status === "active").length} active
               </span>
             )}
           </TabsTrigger>
@@ -480,6 +534,138 @@ export default function GmPanel() {
               )}
             </div>
           )}
+        </TabsContent>
+
+        {/* ── AI Sessions Tab ── */}
+        <TabsContent value="ai-sessions" className="mt-0">
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Launcher */}
+            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+              <div>
+                <p className="text-xs font-mono text-primary tracking-widest mb-1">LAUNCH NEW AI SESSION</p>
+                <p className="text-sm text-muted-foreground">
+                  The AI Shift Supervisor will pick up the incident, brief the team, and run the shift play-by-post.
+                  Each player takes turns describing their action and submitting their dice results.
+                </p>
+              </div>
+              <div>
+                <label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">SESSION TITLE</label>
+                <Input
+                  value={aiSessionTitle}
+                  onChange={(e) => setAiSessionTitle(e.target.value)}
+                  placeholder="e.g. Night Shift — Corridor B Incident"
+                  className="bg-input border-border text-foreground"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">INCITING INCIDENT</label>
+                <Select value={aiSelectedIncidentId} onValueChange={setAiSelectedIncidentId}>
+                  <SelectTrigger className="bg-input border-border text-foreground">
+                    <SelectValue placeholder="Let the AI choose" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border text-foreground">
+                    <SelectItem value="random">Let the AI choose</SelectItem>
+                    {incidents?.map((inc) => (
+                      <SelectItem key={inc.id} value={String(inc.id)}>
+                        {inc.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">SELECT PLAYERS</label>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {(allUsers ?? []).map((u) => (
+                    <label key={u.id} className="flex items-center gap-3 cursor-pointer group">
+                      <Checkbox
+                        checked={aiSelectedPlayerIds.includes(u.id)}
+                        onCheckedChange={() => togglePlayer(u.id)}
+                        className="border-border"
+                      />
+                      <span className="text-sm text-foreground group-hover:text-primary transition-colors">
+                        {u.name ?? u.email ?? `User #${u.id}`}
+                      </span>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {u.role === "admin" ? "SUPERVISOR" : "OPERATOR"}
+                      </span>
+                    </label>
+                  ))}
+                  {(!allUsers || allUsers.length === 0) && (
+                    <p className="text-xs text-muted-foreground">No operators have signed in yet.</p>
+                  )}
+                </div>
+              </div>
+              <Button
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+                disabled={
+                  !aiSessionTitle.trim() ||
+                  aiSelectedPlayerIds.length === 0 ||
+                  createAiSession.isPending
+                }
+                onClick={() =>
+                  createAiSession.mutate({
+                    title: aiSessionTitle.trim(),
+                    incitingIncidentId:
+                      aiSelectedIncidentId !== "random" ? parseInt(aiSelectedIncidentId) : undefined,
+                    playerUserIds: aiSelectedPlayerIds,
+                  })
+                }
+              >
+                {createAiSession.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Bot className="w-4 h-4" />
+                )}
+                {createAiSession.isPending ? "Starting shift…" : "Start AI Session"}
+              </Button>
+            </div>
+
+            {/* Session list */}
+            <div className="space-y-3">
+              <p className="text-xs font-mono text-muted-foreground tracking-widest">EXISTING SESSIONS</p>
+              {!aiSessions || aiSessions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                  <Bot className="w-6 h-6 text-muted-foreground mx-auto mb-2 opacity-40" />
+                  <p className="text-xs text-muted-foreground">No sessions yet.</p>
+                </div>
+              ) : (
+                aiSessions.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{s.title}</p>
+                      <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                        {s.status === "active" ? (
+                          <span className="text-primary">ACTIVE</span>
+                        ) : (
+                          <span>ENDED</span>
+                        )}
+                        {" · "}{new Date(s.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Link href={`/sessions/${s.id}`}>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground">
+                          View <ChevronRight className="w-3 h-3" />
+                        </Button>
+                      </Link>
+                      {s.status === "active" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                          disabled={endAiSession.isPending}
+                          onClick={() => endAiSession.mutate({ sessionId: s.id })}
+                        >
+                          End
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 

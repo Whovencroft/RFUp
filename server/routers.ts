@@ -21,7 +21,14 @@ import {
   getAllUsers,
   setUserRole,
   clearSessionLog,
+  createAiSession,
+  getAiSession,
+  listAiSessions,
+  updateAiSession,
+  addAiMessage,
+  getAiMessages,
 } from "./db";
+import { invokeLLM } from "./_core/llm";
 
 // ── Admin guard ────────────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -297,6 +304,298 @@ export const appRouter = router({
       await clearSessionLog();
       return { success: true };
     }),
+  }),
+
+  // ── AI Shift Supervisor ───────────────────────────────────────────────────
+  aiGm: router({
+    // List all AI sessions (admin sees all, players see active ones they're in)
+    listSessions: protectedProcedure.query(async () => {
+      return listAiSessions();
+    }),
+
+    getSession: protectedProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .query(async ({ input }) => {
+        const session = await getAiSession(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        return session;
+      }),
+
+    getMessages: protectedProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .query(async ({ input }) => {
+        return getAiMessages(input.sessionId);
+      }),
+
+    // GM creates a new AI-run session
+    createSession: adminProcedure
+      .input(
+        z.object({
+          title: z.string().min(1).max(256),
+          incitingIncidentId: z.number().int().optional(),
+          playerUserIds: z.array(z.number().int()).min(1),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await seedIncidentsIfEmpty();
+        const allIncidents = await getAllIncidents();
+
+        // Pick inciting incident
+        let incident = allIncidents.find((i) => i.id === input.incitingIncidentId);
+        if (!incident) {
+          // AI picks one at random
+          incident = allIncidents[Math.floor(Math.random() * allIncidents.length)];
+        }
+        if (!incident) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No incidents available." });
+
+        // Fetch player characters
+        const playerChars = await Promise.all(
+          input.playerUserIds.map(async (uid) => {
+            const char = await getCharacterByUserId(uid);
+            if (!char) return null;
+            const charSkills = await getSkillsByCharacterId(char.id);
+            return { ...char, skills: charSkills };
+          })
+        );
+        const validPlayers = playerChars.filter(Boolean) as NonNullable<typeof playerChars[0]>[];
+        if (validPlayers.length === 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "None of the selected players have characters." });
+        }
+
+        const session = await createAiSession({
+          title: input.title,
+          incitingIncidentId: incident.id,
+          playerOrder: JSON.stringify(validPlayers.map((p) => p.userId)),
+          currentTurnUserId: validPlayers[0]!.userId,
+          createdBy: ctx.user.id,
+        });
+
+        // Build opening narration
+        const playerRoster = validPlayers
+          .map((p) => `- ${p.name} (${p.jobTitle}), skills: ${p.skills.map((s) => `${s.name} ${s.level}`).join(", ")}`)
+          .join("\n");
+
+        const openingPrompt = `You are the AI Shift Supervisor running a play-by-post tabletop RPG called "Roll for Uptime" set in Facility 404, a data center where mundane security work occasionally intersects with the inexplicable.
+
+SYSTEM RULES (follow these exactly):
+- Players roll D6s equal to their skill level. Sum must beat the DC you set to succeed.
+- DC range: 4 (trivial) to 14 (nearly impossible). Typical: 6-9.
+- On failure, player earns 1 XP. They can spend XP to convert a die to a 6 for advancement rolls only.
+- If ALL dice show 6, player gains a new skill more specific than the one used.
+- You adjudicate whether a skill is applicable. Be creative but fair — if a player makes a compelling case, let them roll.
+- Failures make things worse in a mundane or absurd way. Not fatal, just worse.
+- After each player's turn, advance to the next player in the roster.
+- Chain incidents naturally — one problem leads to another. The shift never gets simpler.
+- Tone: dry, bureaucratic, slightly absurd. The incident report will be thorough.
+
+PLAYER ROSTER:
+${playerRoster}
+
+INCITING INCIDENT:
+Title: ${incident.title}
+Description: ${incident.description}
+Base difficulty: ${incident.difficulty}
+
+Your opening message should:
+1. Set the scene at Facility 404 in 2-3 sentences.
+2. Describe the inciting incident as it presents itself to the team.
+3. Address the first player by their character name and ask what they do.
+4. Do NOT roll dice yourself. Do NOT resolve anything yet.
+
+Keep it under 200 words. Write in second person ("you"). Dry, grounded tone.`;
+
+        const llmResponse = await invokeLLM({
+          messages: [{ role: "user", content: openingPrompt }],
+        });
+
+        const openingText = String(llmResponse.choices[0]?.message?.content ?? "The shift begins.");
+
+        await addAiMessage({
+          sessionId: session.id,
+          authorType: "ai",
+          authorName: "AI Shift Supervisor",
+          content: openingText,
+          isIncidentChain: false,
+        });
+
+        return { session, openingText };
+      }),
+
+    // Player submits their action and dice results
+    submitAction: protectedProcedure
+      .input(
+        z.object({
+          sessionId: z.number().int(),
+          actionDescription: z.string().min(1).max(1000),
+          skillName: z.string().min(1).max(256),
+          skillLevel: z.number().int().min(1).max(10),
+          diceResults: z.array(z.number().int().min(1).max(6)),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const session = await getAiSession(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (session.status === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This session has ended." });
+
+        // Enforce turn order
+        if (session.currentTurnUserId !== ctx.user.id) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "It's not your turn yet.",
+          });
+        }
+
+        const char = await getCharacterByUserId(ctx.user.id);
+        if (!char) throw new TRPCError({ code: "NOT_FOUND", message: "No character found." });
+        const charSkills = await getSkillsByCharacterId(char.id);
+
+        const rollTotal = input.diceResults.reduce((a, b) => a + b, 0);
+        const allSixes = input.diceResults.every((d) => d === 6);
+
+        // Save player message
+        const rollData = JSON.stringify({
+          dice: input.diceResults,
+          total: rollTotal,
+          skillName: input.skillName,
+          skillLevel: input.skillLevel,
+        });
+
+        await addAiMessage({
+          sessionId: input.sessionId,
+          authorType: "player",
+          authorId: ctx.user.id,
+          authorName: char.name,
+          content: input.actionDescription,
+          rollData,
+        });
+
+        // Fetch full message history for context
+        const history = await getAiMessages(input.sessionId, 40);
+        const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
+
+        // Fetch all player characters for context
+        const allPlayerChars = await Promise.all(
+          playerOrder.map(async (uid) => {
+            const c = await getCharacterByUserId(uid);
+            if (!c) return null;
+            const s = await getSkillsByCharacterId(c.id);
+            return { ...c, skills: s };
+          })
+        );
+        const validPlayers = allPlayerChars.filter(Boolean) as NonNullable<typeof allPlayerChars[0]>[];
+
+        const playerRoster = validPlayers
+          .map((p) => `- ${p.name} (${p.jobTitle}), skills: ${p.skills.map((s) => `${s.name} ${s.level}`).join(", ")}, XP: ${p.xp}`)
+          .join("\n");
+
+        // Build conversation history for LLM
+        const conversationHistory = history.slice(-20).map((m) => ({
+          role: (m.authorType === "ai" ? "assistant" : "user") as "assistant" | "user",
+          content: m.authorType === "player"
+            ? `[${m.authorName}]: ${m.content}${m.rollData ? ` [ROLL: ${JSON.parse(m.rollData).dice.join(",")} = ${JSON.parse(m.rollData).total}]` : ""}`
+            : m.content,
+        }));
+
+        const systemPrompt = `You are the AI Shift Supervisor running "Roll for Uptime" at Facility 404.
+
+SYSTEM RULES:
+- Adjudicate whether the player's stated skill ("${input.skillName} ${input.skillLevel}") is applicable to their described action.
+- If applicable: the roll total is ${rollTotal} (dice: [${input.diceResults.join(", ")}]). Set a DC between 4-14 appropriate to the difficulty. Narrate success or failure.
+- If not applicable: explain why briefly, tell them what skill level they'd roll at (usually Do Anything 1), and ask them to reroll if needed.
+- If all dice showed 6 (${allSixes ? "YES — all sixes this roll" : "no"}): prompt the player to name a new, more specific skill.
+- On failure: make things worse in a mundane or absurd way. Award them 1 XP (note this in your response).
+- After resolving this player's action, address the NEXT player in turn order by name and describe what they see/face.
+- You may introduce a new complication or chained incident if narratively appropriate.
+- Keep responses under 250 words. Dry, bureaucratic tone with occasional absurdity.
+
+PLAYER ROSTER:
+${playerRoster}
+
+CURRENT PLAYER: ${char.name} (${char.jobTitle})
+ACTION: ${input.actionDescription}
+SKILL USED: ${input.skillName} ${input.skillLevel}
+ROLL: [${input.diceResults.join(", ")}] = ${rollTotal}
+ALL SIXES: ${allSixes}
+
+TURN ORDER: ${validPlayers.map((p) => p.name).join(" → ")}
+NEXT PLAYER AFTER THIS: ${(() => {
+  const idx = playerOrder.indexOf(ctx.user.id);
+  const nextUid = playerOrder[(idx + 1) % playerOrder.length];
+  const nextChar = validPlayers.find((p) => p.userId === nextUid);
+  return nextChar ? nextChar.name : "unknown";
+})()}
+
+Context summary: ${session.contextSummary ?? "Session just started."}`;
+
+        const messages = [
+          { role: "system" as const, content: systemPrompt },
+          ...conversationHistory,
+        ];
+
+        const llmResponse = await invokeLLM({ messages });
+        const aiText = String(llmResponse.choices[0]?.message?.content ?? "The Shift Supervisor reviews the situation.");
+
+        // Detect if AI introduced a new incident (simple heuristic: look for "INCIDENT:" marker)
+        const isChain = aiText.includes("[NEW INCIDENT]") || aiText.includes("INCIDENT CHAIN");
+
+        // Determine DC from AI response (look for pattern like "DC 8" or "difficulty 8")
+        const dcMatch = aiText.match(/\bDC[:\s]*(\d+)|\bdifficulty[:\s]*(\d+)/i);
+        const dcSet = dcMatch ? parseInt(dcMatch[1] ?? dcMatch[2] ?? "7") : null;
+
+        // Determine skill ruling
+        const lowerText = aiText.toLowerCase();
+        let skillRuling: "approved" | "denied" | "partial" = "approved";
+        if (lowerText.includes("not applicable") || lowerText.includes("doesn't apply") || lowerText.includes("does not apply")) {
+          skillRuling = "denied";
+        } else if (lowerText.includes("partially") || lowerText.includes("stretch") || lowerText.includes("generous")) {
+          skillRuling = "partial";
+        }
+
+        await addAiMessage({
+          sessionId: input.sessionId,
+          authorType: "ai",
+          authorName: "AI Shift Supervisor",
+          content: aiText,
+          dcSet: dcSet ?? undefined,
+          skillRuling,
+          isIncidentChain: isChain,
+        });
+
+        // Advance turn order
+        const currentIdx = playerOrder.indexOf(ctx.user.id);
+        const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
+        await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId });
+
+        // Update context summary periodically (every 5 messages)
+        if (history.length % 5 === 0) {
+          const summaryPrompt = `Summarize the current state of this Roll for Uptime session in 3-4 sentences for context: what incident(s) are active, what has happened, what complications have arisen. Be factual and brief.`;
+          const summaryResponse = await invokeLLM({
+            messages: [
+              ...messages,
+              { role: "assistant" as const, content: aiText },
+              { role: "user" as const, content: summaryPrompt },
+            ],
+          });
+          const summary = summaryResponse.choices[0]?.message?.content;
+          if (summary) await updateAiSession(input.sessionId, { contextSummary: String(summary) });
+        }
+
+        return {
+          aiResponse: aiText,
+          dcSet,
+          skillRuling,
+          allSixes,
+          nextTurnUserId: nextUserId,
+        };
+      }),
+
+    // GM ends the session
+    endSession: adminProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .mutation(async ({ input }) => {
+        await updateAiSession(input.sessionId, { status: "ended" });
+        return { success: true };
+      }),
   }),
 });
 

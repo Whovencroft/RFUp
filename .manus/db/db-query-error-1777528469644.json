@@ -1,0 +1,15 @@
+{
+  "query": "CREATE TABLE `ai_sessions` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(256) NOT NULL,\n\t`incitingIncidentId` int,\n\t`status` enum('active','ended') NOT NULL DEFAULT 'active',\n\t`playerOrder` text NOT NULL DEFAULT ('[]'),\n\t`currentTurnUserId` int,\n\t`contextSummary` text,\n\t`createdBy` int NOT NULL,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `ai_sessions_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XkwVb4v7AT7VCj.bf352544bc52 --database gBAwcJRbDodgjaFt6Ce2jU --execute CREATE TABLE `ai_sessions` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(256) NOT NULL,\n\t`incitingIncidentId` int,\n\t`status` enum('active','ended') NOT NULL DEFAULT 'active',\n\t`playerOrder` text NOT NULL DEFAULT ('[]'),\n\t`currentTurnUserId` int,\n\t`contextSummary` text,\n\t`createdBy` int NOT NULL,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `ai_sessions_id` PRIMARY KEY(`id`)\n);",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 6 column 43 near \"'[]'),",
+    "\t`currentTurnUserId` int,",
+    "\t`contextSummary` text,",
+    "\t`createdBy` int NOT NULL,",
+    "\t`createdAt` timestamp NOT NULL DEFAULT (now()),",
+    "\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,",
+    "\tCONSTRAINT `ai_sessions_id` PRIMARY KEY(`id`)",
+    ")\""
+  ]
+}

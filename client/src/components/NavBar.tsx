@@ -3,13 +3,14 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Shield, Dices, AlertTriangle, ScrollText, Settings, LogIn, LogOut } from "lucide-react";
+import { Shield, Dices, AlertTriangle, ScrollText, Settings, LogIn, LogOut, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Home", icon: Shield },
   { href: "/play", label: "Play", icon: Dices },
   { href: "/incidents", label: "Incidents", icon: AlertTriangle },
+  { href: "/sessions", label: "AI Sessions", icon: Bot },
   { href: "/log", label: "Session Log", icon: ScrollText },
 ];
 

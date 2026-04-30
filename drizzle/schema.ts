@@ -6,6 +6,7 @@ import {
   timestamp,
   varchar,
   boolean,
+  json,
 } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
@@ -83,3 +84,46 @@ export const sessionLog = mysqlTable("session_log", {
 
 export type SessionLogEntry = typeof sessionLog.$inferSelect;
 export type InsertSessionLogEntry = typeof sessionLog.$inferInsert;
+
+// AI Sessions: a play-by-post game run by the AI Shift Supervisor
+export const aiSessions = mysqlTable("ai_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 256 }).notNull(),
+  incitingIncidentId: int("incitingIncidentId"), // starting incident
+  status: mysqlEnum("status", ["active", "ended"]).default("active").notNull(),
+  // JSON array of userId numbers in turn order
+  playerOrder: text("playerOrder").notNull().default("[]"),
+  // userId of the player whose turn it currently is (null = waiting for GM to start)
+  currentTurnUserId: int("currentTurnUserId"),
+  // running context summary the AI maintains to avoid token bloat
+  contextSummary: text("contextSummary"),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AiSession = typeof aiSessions.$inferSelect;
+export type InsertAiSession = typeof aiSessions.$inferInsert;
+
+// AI Messages: the shared feed for an AI session
+export const aiMessages = mysqlTable("ai_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  // "ai" for the AI Shift Supervisor, or a userId for a player
+  authorType: mysqlEnum("authorType", ["ai", "player"]).notNull(),
+  authorId: int("authorId"), // null when authorType = "ai"
+  authorName: varchar("authorName", { length: 128 }).notNull(),
+  content: text("content").notNull(),
+  // JSON: { dice: number[], total: number, skillName: string, skillLevel: number }
+  rollData: text("rollData"),
+  // AI-set DC for this action (populated on AI response messages)
+  dcSet: int("dcSet"),
+  // "approved" | "denied" | "partial" — AI ruling on skill applicability
+  skillRuling: mysqlEnum("skillRuling", ["approved", "denied", "partial"]),
+  // true if this AI message introduces a new chained incident
+  isIncidentChain: boolean("isIncidentChain").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AiMessage = typeof aiMessages.$inferSelect;
+export type InsertAiMessage = typeof aiMessages.$inferInsert;
