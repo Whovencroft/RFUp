@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -12,18 +11,18 @@ import {
   User,
   ChevronLeft,
   Dices,
-  Plus,
-  Minus,
   AlertTriangle,
   CheckCircle,
   XCircle,
   Clock,
   Zap,
+  Printer,
+  Star,
 } from "lucide-react";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Die Face ─────────────────────────────────────────────────────────────────
 
-function DieFace({ value }: { value: number }) {
+function DieFace({ value, size = "md" }: { value: number; size?: "sm" | "md" }) {
   const dots: Record<number, number[][]> = {
     1: [[50, 50]],
     2: [[25, 25], [75, 75]],
@@ -33,15 +32,17 @@ function DieFace({ value }: { value: number }) {
     6: [[25, 20], [75, 20], [25, 50], [75, 50], [25, 80], [75, 80]],
   };
   const isSix = value === 6;
+  const dim = size === "sm" ? "w-7 h-7" : "w-10 h-10";
+  const svgDim = size === "sm" ? "w-5 h-5" : "w-7 h-7";
   return (
     <div
-      className={`relative w-9 h-9 rounded-md border-2 flex items-center justify-center shrink-0 ${
+      className={`relative ${dim} rounded-md border-2 flex items-center justify-center shrink-0 ${
         isSix
           ? "border-primary bg-primary/20"
           : "border-border bg-card"
       }`}
     >
-      <svg viewBox="0 0 100 100" className="w-6 h-6">
+      <svg viewBox="0 0 100 100" className={svgDim}>
         {(dots[value] ?? []).map(([cx, cy], i) => (
           <circle
             key={i}
@@ -56,6 +57,40 @@ function DieFace({ value }: { value: number }) {
     </div>
   );
 }
+
+// ── Animated Rolling Die ──────────────────────────────────────────────────────
+
+function RollingDie({ finalValue, delay }: { finalValue: number; delay: number }) {
+  const [display, setDisplay] = useState(1);
+  const [settled, setSettled] = useState(false);
+
+  useEffect(() => {
+    setDisplay(1);
+    setSettled(false);
+    let count = 0;
+    const total = 8;
+    const interval = setInterval(() => {
+      setDisplay(Math.floor(Math.random() * 6) + 1);
+      count++;
+      if (count >= total) {
+        clearInterval(interval);
+        setTimeout(() => {
+          setDisplay(finalValue);
+          setSettled(true);
+        }, delay);
+      }
+    }, 80);
+    return () => clearInterval(interval);
+  }, [finalValue, delay]);
+
+  return (
+    <div className={`transition-transform duration-200 ${settled ? "scale-110" : "scale-100"}`}>
+      <DieFace value={display} />
+    </div>
+  );
+}
+
+// ── Ruling Badge ──────────────────────────────────────────────────────────────
 
 function RulingBadge({ ruling }: { ruling: string | null | undefined }) {
   if (!ruling) return null;
@@ -78,6 +113,17 @@ function RulingBadge({ ruling }: { ruling: string | null | undefined }) {
   );
 }
 
+// ── Step indicator ────────────────────────────────────────────────────────────
+
+function StepBadge({ step }: { step: 1 | 2 | 3 }) {
+  const labels = { 1: "DESCRIBE ACTION", 2: "SELECT SKILL & ROLL", 3: "SUBMITTING…" };
+  return (
+    <span className="text-xs font-mono text-primary bg-primary/10 border border-primary/20 rounded px-2 py-0.5">
+      STEP {step}: {labels[step]}
+    </span>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function AiSession() {
@@ -86,11 +132,12 @@ export default function AiSession() {
   const { user } = useAuth();
   const feedRef = useRef<HTMLDivElement>(null);
 
-  // Form state
+  // Three-step flow state
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [actionText, setActionText] = useState("");
-  const [skillName, setSkillName] = useState("");
-  const [skillLevel, setSkillLevel] = useState(1);
-  const [diceInputs, setDiceInputs] = useState<number[]>([1]);
+  const [selectedSkill, setSelectedSkill] = useState<{ name: string; level: number } | null>(null);
+  const [rolledDice, setRolledDice] = useState<number[]>([]);
+  const [isRolling, setIsRolling] = useState(false);
 
   const { data: session, refetch: refetchSession } = trpc.aiGm.getSession.useQuery(
     { sessionId },
@@ -104,79 +151,101 @@ export default function AiSession() {
 
   const { data: myChar } = trpc.character.get.useQuery();
 
+  // Build allies list from session player order (everyone except self)
+  const playerOrder: number[] = JSON.parse(session?.playerOrder || "[]");
+  const { data: allChars } = trpc.character.listAll.useQuery(
+    undefined,
+    { enabled: playerOrder.length > 1 }
+  );
+  const allies = allChars?.filter(
+    (c) => c.userId !== user?.id && playerOrder.includes(c.userId)
+  ) ?? [];
+
   const submitAction = trpc.aiGm.submitAction.useMutation({
     onSuccess: () => {
       setActionText("");
+      setSelectedSkill(null);
+      setRolledDice([]);
+      setStep(1);
       refetchMessages();
       refetchSession();
       toast.success("Action submitted.");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => {
+      toast.error(e.message);
+      setStep(2);
+    },
   });
 
-  // Scroll to bottom on new messages
+  // Auto-scroll feed to bottom
   useEffect(() => {
     if (feedRef.current) {
       feedRef.current.scrollTop = feedRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Sync dice count to skill level
-  useEffect(() => {
-    setDiceInputs(Array(skillLevel).fill(1));
-  }, [skillLevel]);
+  // Roll dice for selected skill
+  const rollSkill = useCallback((skill: { name: string; level: number }) => {
+    setSelectedSkill(skill);
+    setIsRolling(true);
+    const results = Array.from({ length: skill.level }, () => Math.floor(Math.random() * 6) + 1);
+    // Let animation play for ~1s before marking settled
+    setTimeout(() => {
+      setRolledDice(results);
+      setIsRolling(false);
+    }, 900);
+  }, []);
+
+  function handleSubmit() {
+    if (!actionText.trim()) return toast.error("Describe your action first.");
+    if (!selectedSkill) return toast.error("Select a skill to roll.");
+    if (rolledDice.length === 0) return toast.error("Roll your dice first.");
+    setStep(3);
+    submitAction.mutate({
+      sessionId,
+      actionDescription: actionText.trim(),
+      skillName: selectedSkill.name,
+      skillLevel: selectedSkill.level,
+      diceResults: rolledDice,
+    });
+  }
 
   if (!session) {
     return (
-      <div className="container py-16 text-center text-muted-foreground">
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground font-mono text-sm">
         Loading session…
       </div>
     );
   }
 
-  const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
   const isMyTurn = session.currentTurnUserId === user?.id;
   const isEnded = session.status === "ended";
 
-  function handleDieChange(idx: number, val: number) {
-    setDiceInputs((prev) => prev.map((d, i) => (i === idx ? Math.min(6, Math.max(1, val)) : d)));
-  }
-
-  function handleSubmit() {
-    if (!actionText.trim()) return toast.error("Describe your action first.");
-    if (!skillName.trim()) return toast.error("Name the skill you're using.");
-    submitAction.mutate({
-      sessionId,
-      actionDescription: actionText.trim(),
-      skillName: skillName.trim(),
-      skillLevel,
-      diceResults: diceInputs,
-    });
-  }
+  // Skills to show in manifest — always include Do Anything 1 as fallback
+  const skills = myChar?.skills && myChar.skills.length > 0
+    ? myChar.skills
+    : [{ id: 0, name: "Do Anything", level: 1 }];
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* ── Header ── */}
-      <div className="border-b border-border bg-background/95 backdrop-blur sticky top-0 z-10">
-        <div className="container py-3 flex items-center justify-between gap-4">
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* ── Sticky Header ── */}
+      <div className="border-b border-border bg-background/95 backdrop-blur shrink-0 z-10">
+        <div className="px-4 py-2.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link href="/sessions">
-              <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground shrink-0">
-                <ChevronLeft className="w-4 h-4" />
-                Sessions
+              <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground shrink-0 h-7 px-2">
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span className="text-xs font-mono">Sessions</span>
               </Button>
             </Link>
             <div className="min-w-0">
               <h1 className="text-sm font-semibold text-foreground truncate">{session.title}</h1>
-              <p className="text-xs text-muted-foreground font-mono">
-                {isEnded ? "SHIFT ENDED" : isMyTurn ? "YOUR TURN" : "WAITING FOR ANOTHER OPERATOR"}
-              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="shrink-0">
             {isEnded ? (
               <Badge variant="outline" className="text-muted-foreground border-border font-mono text-xs">
-                ENDED
+                SHIFT ENDED
               </Badge>
             ) : (
               <Badge
@@ -188,13 +257,9 @@ export default function AiSession() {
                 }`}
               >
                 {isMyTurn ? (
-                  <>
-                    <Zap className="w-3 h-3 mr-1" /> YOUR TURN
-                  </>
+                  <><Zap className="w-3 h-3 mr-1" /> YOUR TURN</>
                 ) : (
-                  <>
-                    <Clock className="w-3 h-3 mr-1" /> WAITING
-                  </>
+                  <><Clock className="w-3 h-3 mr-1" /> WAITING</>
                 )}
               </Badge>
             )}
@@ -202,218 +267,298 @@ export default function AiSession() {
         </div>
       </div>
 
-      {/* ── Feed ── */}
-      <div
-        ref={feedRef}
-        className="flex-1 overflow-y-auto container py-6 space-y-4"
-        style={{ maxHeight: "calc(100vh - 280px)" }}
-      >
-        {(!messages || messages.length === 0) && (
-          <div className="text-center text-muted-foreground py-12 text-sm">
-            Waiting for the shift to begin…
-          </div>
-        )}
+      {/* ── Two-Panel Body ── */}
+      <div className="flex-1 flex overflow-hidden">
 
-        {messages?.map((msg) => {
-          const isAi = msg.authorType === "ai";
-          const rollData = msg.rollData ? JSON.parse(msg.rollData) : null;
+        {/* ── LEFT PANEL: Operator File ── */}
+        <div className="w-72 shrink-0 border-r border-border flex flex-col overflow-hidden bg-background">
 
-          return (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${isAi ? "" : "flex-row-reverse"}`}
-            >
-              {/* Avatar */}
-              <div
-                className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 ${
-                  isAi
-                    ? "bg-primary/10 border-primary/30 text-primary"
-                    : "bg-muted border-border text-muted-foreground"
-                }`}
-              >
-                {isAi ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+          {/* Operator header */}
+          <div className="p-4 border-b border-border shrink-0">
+            <p className="text-xs font-mono text-muted-foreground tracking-widest mb-1">OPERATOR FILE</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-lg font-serif font-bold text-foreground truncate">
+                  {myChar?.name ?? "—"}
+                </h2>
+                <p className="text-xs text-muted-foreground truncate">{myChar?.jobTitle ?? "Unassigned"}</p>
               </div>
-
-              {/* Bubble */}
-              <div className={`max-w-[75%] space-y-2 ${isAi ? "" : "items-end flex flex-col"}`}>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-mono font-semibold text-foreground">
-                    {msg.authorName}
-                  </span>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  {msg.isIncidentChain && (
-                    <span className="text-xs font-mono text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-2 py-0.5">
-                      <AlertTriangle className="w-3 h-3 inline mr-1" />
-                      INCIDENT CHAIN
-                    </span>
-                  )}
-                  {msg.skillRuling && <RulingBadge ruling={msg.skillRuling} />}
-                  {msg.dcSet && (
-                    <span className="text-xs font-mono text-muted-foreground bg-muted border border-border rounded px-2 py-0.5">
-                      DC {msg.dcSet}
-                    </span>
-                  )}
-                </div>
-
-                {/* Roll data */}
-                {rollData && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {rollData.dice.map((d: number, i: number) => (
-                      <DieFace key={i} value={d} />
-                    ))}
-                    <span className="text-xs font-mono text-muted-foreground ml-1">
-                      = <span className="text-foreground font-semibold">{rollData.total}</span>
-                      {" "}using <span className="text-primary">{rollData.skillName} {rollData.skillLevel}</span>
-                    </span>
-                  </div>
-                )}
-
-                {/* Message content */}
-                <div
-                  className={`rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                    isAi
-                      ? "bg-card border border-border text-foreground"
-                      : "bg-primary/10 border border-primary/20 text-foreground"
-                  }`}
-                >
-                  {msg.content}
-                </div>
-              </div>
+              <Link href="/print">
+                <button className="text-muted-foreground hover:text-foreground transition-colors mt-0.5 shrink-0" title="Print character sheet">
+                  <Printer className="w-3.5 h-3.5" />
+                </button>
+              </Link>
             </div>
-          );
-        })}
-      </div>
-
-      {/* ── Action Form ── */}
-      {!isEnded && (
-        <div className="border-t border-border bg-background">
-          <div className="container py-4">
-            {!isMyTurn ? (
-              <div className="text-center text-sm text-muted-foreground py-2 font-mono">
-                <Clock className="w-4 h-4 inline mr-2 opacity-60" />
-                Waiting for another operator to take their turn…
+            {myChar && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-xs font-mono text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-2 py-0.5">
+                  <Zap className="w-3 h-3" /> {myChar.xp ?? 0} XP
+                </span>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {skills.length} skill{skills.length !== 1 ? "s" : ""}
+                </span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-mono text-primary font-semibold tracking-widest">
-                    YOUR TURN — {myChar?.name ?? "OPERATOR"}
-                  </span>
-                </div>
+            )}
+          </div>
 
-                {/* Action description */}
-                <Textarea
-                  placeholder="Describe what you do. Be specific — the more creative, the better the skill you might earn."
-                  value={actionText}
-                  onChange={(e) => setActionText(e.target.value)}
-                  className="resize-none bg-card border-border text-foreground placeholder:text-muted-foreground text-sm"
-                  rows={2}
-                />
-
-                {/* Skill + dice row */}
-                <div className="flex flex-wrap gap-3 items-end">
-                  {/* Skill name */}
-                  <div className="flex-1 min-w-[160px]">
-                    <label className="text-xs font-mono text-muted-foreground mb-1 block">SKILL USED</label>
-                    <Input
-                      placeholder="e.g. Do Anything, Badge Reader Expertise 2"
-                      value={skillName}
-                      onChange={(e) => setSkillName(e.target.value)}
-                      className="bg-card border-border text-foreground text-sm h-9"
-                    />
-                  </div>
-
-                  {/* Skill level */}
-                  <div>
-                    <label className="text-xs font-mono text-muted-foreground mb-1 block">LEVEL (# DICE)</label>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 border-border"
-                        onClick={() => setSkillLevel((l) => Math.max(1, l - 1))}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                      <span className="w-8 text-center text-sm font-mono font-semibold text-foreground">
-                        {skillLevel}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 border-border"
-                        onClick={() => setSkillLevel((l) => Math.min(10, l + 1))}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Dice results */}
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="text-xs font-mono text-muted-foreground mb-1 block">
-                      DICE RESULTS (roll physically, enter here)
-                    </label>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {diceInputs.map((d, i) => (
-                        <input
+          {/* Skill Manifest — scrollable */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+            <p className="text-xs font-mono text-muted-foreground tracking-widest px-1 mb-2">SKILL MANIFEST</p>
+            {skills.map((s) => {
+              const isSelected = selectedSkill?.name === s.name && selectedSkill?.level === s.level;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    if (!isMyTurn || isEnded || step === 3) return;
+                    if (step === 1 && !actionText.trim()) {
+                      toast.error("Describe your action first (Step 1).");
+                      return;
+                    }
+                    setStep(2);
+                    rollSkill({ name: s.name, level: s.level });
+                  }}
+                  disabled={!isMyTurn || isEnded || step === 3}
+                  className={`w-full text-left rounded-lg border px-3 py-2.5 transition-all group ${
+                    isSelected
+                      ? "border-primary/60 bg-primary/10"
+                      : "border-border bg-card hover:border-primary/30 hover:bg-primary/5"
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
+                      {s.name}
+                    </span>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {Array.from({ length: s.level }).map((_, i) => (
+                        <Star
                           key={i}
-                          type="number"
-                          min={1}
-                          max={6}
-                          value={d}
-                          onChange={(e) => handleDieChange(i, parseInt(e.target.value) || 1)}
-                          className="w-10 h-9 text-center text-sm font-mono font-semibold bg-card border border-border rounded-md text-foreground focus:outline-none focus:border-primary"
+                          className={`w-2.5 h-2.5 ${isSelected ? "text-primary fill-primary" : "text-muted-foreground fill-muted-foreground"}`}
                         />
                       ))}
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                    Roll {s.level}d6
+                  </p>
+                </button>
+              );
+            })}
+          </div>
 
-                  {/* Submit */}
-                  <Button
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-9 shrink-0"
-                    onClick={handleSubmit}
-                    disabled={submitAction.isPending}
+          {/* Allies section */}
+          {allies.length > 0 && (
+            <div className="border-t border-border p-3 shrink-0">
+              <p className="text-xs font-mono text-muted-foreground tracking-widest mb-2">ALLIES ON SHIFT</p>
+              <div className="space-y-1.5">
+                {allies.map((a) => (
+                  <div key={a.userId} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-card border border-border">
+                    <div className="w-5 h-5 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
+                      <User className="w-3 h-3 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-foreground truncate">{a.name}</p>
+                      <p className="text-xs text-muted-foreground truncate font-mono">{a.jobTitle ?? "—"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT PANEL: Incident + Chat + Input ── */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+
+          {/* Active Incident Banner */}
+          {session.incidentTitle && (
+            <div className="shrink-0 border-b border-border bg-amber-400/5 px-4 py-2.5 flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-mono text-muted-foreground tracking-widest">ACTIVE INCIDENT</span>
+                  {session.incidentDc && (
+                    <span className="text-xs font-mono text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-2 py-0.5">
+                      DC {session.incidentDc}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-semibold text-foreground mt-0.5">{session.incidentTitle}</p>
+                {session.incidentDescription && (
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{session.incidentDescription}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Chat Feed */}
+          <div
+            ref={feedRef}
+            className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
+          >
+            {(!messages || messages.length === 0) && (
+              <div className="text-center text-muted-foreground py-16 text-sm font-mono">
+                Waiting for the shift to begin…
+              </div>
+            )}
+
+            {messages?.map((msg) => {
+              const isAi = msg.authorType === "ai";
+              const rollData = msg.rollData ? JSON.parse(msg.rollData) : null;
+
+              return (
+                <div key={msg.id} className={`flex gap-3 ${isAi ? "" : "flex-row-reverse"}`}>
+                  {/* Avatar */}
+                  <div
+                    className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                      isAi
+                        ? "bg-primary/10 border-primary/30 text-primary"
+                        : "bg-muted border-border text-muted-foreground"
+                    }`}
                   >
-                    <Dices className="w-4 h-4" />
-                    {submitAction.isPending ? "Submitting…" : "Submit Action"}
-                  </Button>
+                    {isAi ? <Bot className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+                  </div>
+
+                  {/* Bubble */}
+                  <div className={`max-w-[78%] space-y-1.5 ${isAi ? "" : "items-end flex flex-col"}`}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-mono font-semibold text-foreground">{msg.authorName}</span>
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      {msg.isIncidentChain && (
+                        <span className="text-xs font-mono text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-2 py-0.5">
+                          <AlertTriangle className="w-3 h-3 inline mr-1" />NEW INCIDENT
+                        </span>
+                      )}
+                      {msg.skillRuling && <RulingBadge ruling={msg.skillRuling} />}
+                      {msg.dcSet && (
+                        <span className="text-xs font-mono text-muted-foreground bg-muted border border-border rounded px-2 py-0.5">
+                          DC {msg.dcSet}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Roll data */}
+                    {rollData && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {rollData.dice.map((d: number, i: number) => (
+                          <DieFace key={i} value={d} size="sm" />
+                        ))}
+                        <span className="text-xs font-mono text-muted-foreground ml-1">
+                          = <span className="text-foreground font-semibold">{rollData.total}</span>
+                          {" "}· <span className="text-primary">{rollData.skillName} {rollData.skillLevel}</span>
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Message bubble */}
+                    <div
+                      className={`rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                        isAi
+                          ? "bg-card border border-border text-foreground"
+                          : "bg-primary/10 border border-primary/20 text-foreground"
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Bottom Input Area ── */}
+          <div className="shrink-0 border-t border-border bg-background">
+            {isEnded ? (
+              <div className="px-4 py-3 text-center text-sm text-muted-foreground font-mono">
+                This shift has ended. The incident report has been filed.
+              </div>
+            ) : !isMyTurn ? (
+              <div className="px-4 py-3 text-center text-sm text-muted-foreground font-mono">
+                <Clock className="w-4 h-4 inline mr-2 opacity-60" />
+                Waiting for another operator to take their turn…
+              </div>
+            ) : (
+              <div className="px-4 py-3 space-y-2.5">
+                {/* Step indicator */}
+                <div className="flex items-center gap-2">
+                  <StepBadge step={step} />
+                  {step === 2 && selectedSkill && (
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {selectedSkill.name} {selectedSkill.level} selected
+                    </span>
+                  )}
                 </div>
 
-                {/* Quick skill picker from character */}
-                {myChar?.skills && myChar.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="text-xs font-mono text-muted-foreground self-center">Quick pick:</span>
-                    {myChar.skills.map((s) => (
+                {/* Step 1: Action description */}
+                <Textarea
+                  placeholder="Describe what you do. Be specific — the more creative, the better the skill you might earn."
+                  value={actionText}
+                  onChange={(e) => {
+                    setActionText(e.target.value);
+                    if (step === 2 || step === 3) {
+                      // Allow editing action text but keep skill selected
+                    }
+                  }}
+                  className="resize-none bg-card border-border text-foreground placeholder:text-muted-foreground text-sm"
+                  rows={2}
+                  disabled={step === 3}
+                />
+
+                {/* Step 2: Dice roll preview + submit */}
+                {step >= 2 && selectedSkill && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* Animated dice */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {isRolling
+                        ? Array.from({ length: selectedSkill.level }).map((_, i) => (
+                            <RollingDie key={i} finalValue={rolledDice[i] ?? 1} delay={i * 80} />
+                          ))
+                        : rolledDice.map((d, i) => <DieFace key={i} value={d} />)
+                      }
+                      {!isRolling && rolledDice.length > 0 && (
+                        <span className="text-sm font-mono text-muted-foreground ml-1">
+                          = <span className="text-foreground font-bold">{rolledDice.reduce((a, b) => a + b, 0)}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Re-roll */}
+                    {!isRolling && (
                       <button
-                        key={s.id}
-                        onClick={() => {
-                          setSkillName(s.name);
-                          setSkillLevel(s.level);
-                        }}
-                        className="text-xs font-mono px-2 py-1 rounded border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+                        onClick={() => rollSkill(selectedSkill)}
+                        className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
                       >
-                        {s.name} {s.level}
+                        re-roll
                       </button>
-                    ))}
+                    )}
+
+                    {/* Submit */}
+                    {!isRolling && (
+                      <Button
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-8 text-xs font-mono ml-auto"
+                        onClick={handleSubmit}
+                        disabled={submitAction.isPending || isRolling}
+                      >
+                        <Dices className="w-3.5 h-3.5" />
+                        {submitAction.isPending ? "Submitting…" : "Submit Action"}
+                      </Button>
+                    )}
                   </div>
+                )}
+
+                {/* Hint when no skill selected */}
+                {step === 1 && (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    After describing your action, select a skill from your manifest on the left to roll.
+                  </p>
                 )}
               </div>
             )}
           </div>
         </div>
-      )}
-
-      {isEnded && (
-        <div className="border-t border-border bg-background">
-          <div className="container py-4 text-center text-sm text-muted-foreground font-mono">
-            This shift has ended. The incident report has been filed.
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   createCharacter,
   updateCharacter,
   getAllCharacters,
+  getAllCharactersWithSkills,
   getSkillsByCharacterId,
   addSkill,
   getAllIncidents,
@@ -92,6 +93,10 @@ export const appRouter = router({
         await updateCharacter(char.id, input);
         return { success: true };
       }),
+
+    listAll: protectedProcedure.query(async () => {
+      return getAllCharactersWithSkills();
+    }),
   }),
 
   // ── Dice ─────────────────────────────────────────────────────────────────

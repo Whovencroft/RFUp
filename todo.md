@@ -77,3 +77,12 @@
 - [x] Frontend: AI response display — narration, skill ruling badge, DC badge, incident chain badge inline
 - [x] Frontend: Session status bar — sticky header with turn indicator, sessions list page at /sessions
 - [x] Tests: 13 tests passing (2 test files) — AI procedures covered in mock suite
+
+## Redesign: AI Session Page Layout
+- [x] Two-panel split layout: left = operator file, right = chat + dice
+- [x] Left panel: operator file header (name, job title, XP), scrollable skill manifest, allies section (other players in session)
+- [x] Right panel: active incident banner (top), scrollable chat log (middle), chat input bar (bottom)
+- [x] Game flow: (1) player types action in chat, (2) selects skill from manifest which auto-rolls D6s with animation, (3) AI responds
+- [x] Remove manual dice number entry — replaced with animated in-app roller triggered by skill selection
+- [x] Skill selection in manifest highlights the chosen skill and triggers the roll inline
+- [x] Chat log shows: player action messages, dice roll results, AI narration, skill rulings, DC badges

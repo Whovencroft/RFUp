@@ -116,6 +116,18 @@ export async function getAllCharacters() {
   return db.select().from(characters);
 }
 
+export async function getAllCharactersWithSkills() {
+  const db = await getDb();
+  if (!db) return [];
+  const chars = await db.select().from(characters);
+  return Promise.all(
+    chars.map(async (c) => {
+      const charSkills = await getSkillsByCharacterId(c.id);
+      return { ...c, skills: charSkills };
+    })
+  );
+}
+
 // ── Skills ─────────────────────────────────────────────────────────────────
 
 export async function getSkillsByCharacterId(characterId: number) {
@@ -241,7 +253,21 @@ export async function getAiSession(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(aiSessions).where(eq(aiSessions.id, id)).limit(1);
-  return result[0];
+  const session = result[0];
+  if (!session) return undefined;
+  // Join incident data for the active incident banner
+  let incidentTitle: string | null = null;
+  let incidentDescription: string | null = null;
+  let incidentDc: number | null = null;
+  if (session.incitingIncidentId) {
+    const inc = await db.select().from(incidents).where(eq(incidents.id, session.incitingIncidentId)).limit(1);
+    if (inc[0]) {
+      incidentTitle = inc[0].title;
+      incidentDescription = inc[0].description;
+      incidentDc = inc[0].difficulty;
+    }
+  }
+  return { ...session, incidentTitle, incidentDescription, incidentDc };
 }
 
 export async function listAiSessions() {
