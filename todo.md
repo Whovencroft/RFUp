@@ -57,3 +57,8 @@
 - [x] Add "Print Character Sheet" link on the Play page (printer icon in OPERATOR FILE header)
 - [x] Register /print route in App.tsx (no NavBar, white background)
 - [x] Hide navbar and UI chrome on /print (print CSS via @media print)
+
+## Content: Home Page Rewrite + Supervisor Section Relocation
+- [x] Rewrite Home page content with a more human, conversational tone (keep rules section as-is)
+- [x] Remove "For the Shift Supervisor" block from Home page
+- [x] Add "For the Shift Supervisor" briefing block to the GM Panel page (amber briefing card above tabs)

@@ -139,6 +139,31 @@ export default function GmPanel() {
         </Button>
       </div>
 
+      {/* Supervisor Briefing */}
+      <div className="mb-8 p-5 rounded-xl border border-amber-500/20 bg-amber-500/5">
+        <p className="text-xs font-mono text-amber-400 mb-3 tracking-widest">RUNNING THE FACILITY</p>
+        <div className="grid md:grid-cols-3 gap-4 text-sm text-muted-foreground leading-relaxed">
+          <p>
+            Your job is to present the incident, set the opposing roll difficulty, and decide whether
+            a player's creative interpretation of <span className="text-foreground italic">"Aggressive Visitor De-escalation 3"</span> is
+            actually applicable to the situation at hand. It usually is. Let them roll.
+          </p>
+          <p>
+            When someone fails, make things worse — but keep it mundane or absurd, not punishing.
+            The goal is a good story and a longer incident report, not a dead operator.
+            Encourage specific, ridiculous skills. The more granular the better.
+          </p>
+          <p>
+            If a player wants to use their badge reader expertise to negotiate with a rogue drone,
+            that's exactly the kind of thing this game is for. Keep it moving.
+            The SLA isn't going to maintain itself.
+          </p>
+        </div>
+        <p className="mt-4 text-xs font-mono text-amber-400/70 border-t border-amber-500/20 pt-3">
+          The first operator to sign in is automatically granted Shift Supervisor access. Promote others from the Personnel tab below.
+        </p>
+      </div>
+
       {/* Tabs */}
       <Tabs defaultValue="personnel" className="w-full">
         <TabsList className="bg-muted/30 border border-border mb-6 h-10">

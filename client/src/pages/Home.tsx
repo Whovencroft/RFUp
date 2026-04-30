@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
-import { Shield, Dices, AlertTriangle, ScrollText, ChevronRight, Lock, Eye, Wifi } from "lucide-react";
+import { Shield, Dices, AlertTriangle, ScrollText, Lock, Eye, Wifi, ChevronRight } from "lucide-react";
 
 const rules = [
   { num: "01", text: "Say what you do and roll a number of D6s, determined by the level of the relevant skill you have." },
@@ -41,8 +41,8 @@ export default function Home() {
               <span className="text-primary">Uptime</span>
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed mb-8 max-w-xl">
-              A slice-of-life tabletop RPG set in the depths of Facility 404 — where the SLA is 99.999%, 
-              the badge readers have opinions, and every shift is a new incident report waiting to happen.
+              A tabletop RPG built for the security team at Facility 404. Six rules, 
+              one die pool, and however many incident reports it takes to get through the shift.
             </p>
             <div className="flex flex-wrap gap-3">
               {isAuthenticated ? (
@@ -81,7 +81,7 @@ export default function Home() {
             <p className="text-xs font-mono text-primary mb-2 tracking-widest">THE SYSTEM</p>
             <h2 className="text-3xl font-display font-semibold text-foreground">Core Rules</h2>
             <p className="text-muted-foreground mt-2 max-w-lg">
-              Roll for Uptime uses the Roll for Shoes micro-system. Six rules. That's it. The rest is 
+              Roll for Uptime runs on the Roll for Shoes micro-system. Six rules. That's it. The rest is 
               whatever happens when you try to explain to your Shift Supervisor why the biometric 
               terminal is now sentient.
             </p>
@@ -108,33 +108,46 @@ export default function Home() {
               <p className="text-xs font-mono text-primary mb-2 tracking-widest">THE SETTING</p>
               <h2 className="text-3xl font-display font-semibold text-foreground mb-4">Facility 404</h2>
               <p className="text-muted-foreground leading-relaxed mb-4">
-                Facility 404 is a sprawling, subterranean data center that hosts everything from 
-                mundane corporate backups to infrastructure so sensitive that its classification level 
-                is itself classified. The hum of the HVAC is a constant presence. The raised floor 
-                tiles are slightly uneven. The coffee machine in the security breakroom has been 
-                flagged in three separate incident reports.
+                Somewhere below ground — or possibly above it, the schematics have never been fully 
+                reconciled — Facility 404 hums along. It hosts everything from routine corporate 
+                backups to infrastructure whose classification level is itself classified. The HVAC 
+                never quite shuts up. The raised floor tiles have been slightly uneven since 2019. 
+                The coffee machine in the security breakroom has appeared in three separate incident 
+                reports for reasons that were never fully resolved.
               </p>
               <p className="text-muted-foreground leading-relaxed mb-4">
-                You are the security team. Your job is access control, threat detection, vendor 
-                management, surveillance integrity, and the general prevention of things that should 
-                not happen from happening. The SLA is 99.999%. You are the last line of defense 
-                between uptime and whatever is currently in the loading dock claiming to be from 
-                facilities management.
+                You work security here. That means access control, surveillance, vendor escort, 
+                threat detection, and the general project of keeping things that shouldn't happen 
+                from happening. The SLA is 99.999%. Nobody says that out loud, but everyone 
+                knows it. You are, technically, the last line of defense between uptime and 
+                whatever is currently in the loading dock claiming to be from facilities management.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                The facility operates at the intersection of the mundane and the inexplicable. 
-                Badge readers develop preferences. Network anomalies defy physical explanation. 
-                Vendors arrive with paperwork that is almost correct. Every shift is a new 
-                incident report waiting to be filed.
+                The facility has a way of making the mundane strange. Badge readers develop 
+                preferences. Network anomalies show up that shouldn't be physically possible. 
+                Vendors arrive with paperwork that is almost correct. Every shift ends with 
+                at least one thing you're going to have to write up.
               </p>
             </div>
             <div className="space-y-3">
-              <p className="text-xs font-mono text-primary mb-2 tracking-widest">TONE GUIDE</p>
+              <p className="text-xs font-mono text-primary mb-2 tracking-widest">WHAT TO EXPECT</p>
               {[
-                { label: "Slice-of-Life", desc: "The stakes are rarely 'save the world.' They are usually 'keep the SLA at 99.999% so we don't have to stay late.'" },
-                { label: "Dry Humor", desc: "The absurdity of the situation is treated with bureaucratic indifference. The incident report will be thorough." },
-                { label: "Grounded Threat", desc: "All scenarios are rooted in real security operations: access control, surveillance, vendor management, network anomalies." },
-                { label: "Emergent Chaos", desc: "Failures are funny. Skills are specific. 'Stale Donut Diplomacy 2' is a valid advancement if you rolled all sixes." },
+                {
+                  label: "Low stakes, high paperwork",
+                  desc: "The goal is rarely 'save the world.' It's usually 'get through the shift without generating a Tier 1 incident.' You will not always succeed at this.",
+                },
+                {
+                  label: "Dry, situational humor",
+                  desc: "Nobody panics. Everyone is mildly annoyed. The incident report will be thorough, professionally worded, and deeply unsatisfying to read.",
+                },
+                {
+                  label: "Real threats, weird context",
+                  desc: "The scenarios are grounded in actual security work — access control failures, social engineering, rogue devices, surveillance gaps. The facility just makes them weirder.",
+                },
+                {
+                  label: "Skills get specific fast",
+                  desc: "Roll all sixes and you get a new skill. That skill has to be more specific than the one you used. 'Stale Donut Diplomacy 2' is a valid outcome if you earned it.",
+                },
               ].map(({ label, desc }) => (
                 <div key={label} className="p-4 rounded-lg border border-border bg-card">
                   <p className="text-sm font-medium text-foreground mb-1">{label}</p>
@@ -147,11 +160,14 @@ export default function Home() {
       </section>
 
       {/* ── Features ── */}
-      <section className="border-b border-border">
+      <section>
         <div className="container py-16">
           <div className="mb-10">
             <p className="text-xs font-mono text-primary mb-2 tracking-widest">THE COMPANION</p>
-            <h2 className="text-3xl font-display font-semibold text-foreground">What's Inside</h2>
+            <h2 className="text-3xl font-display font-semibold text-foreground">What's in the App</h2>
+            <p className="text-muted-foreground mt-2 max-w-lg">
+              Everything you need to run a session, track your character, and document the chaos.
+            </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {features.map(({ icon: Icon, title, desc }) => (
@@ -166,29 +182,6 @@ export default function Home() {
                 <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Shift Supervisor Note ── */}
-      <section>
-        <div className="container py-16">
-          <div className="max-w-2xl">
-            <p className="text-xs font-mono text-primary mb-2 tracking-widest">FOR THE SHIFT SUPERVISOR</p>
-            <h2 className="text-3xl font-display font-semibold text-foreground mb-4">Running the Facility</h2>
-            <p className="text-muted-foreground leading-relaxed mb-4">
-              The Shift Supervisor is the Game Master. They present the incident, set the opposing 
-              roll difficulty, and decide whether a player's creative interpretation of 
-              "Aggressive Visitor De-escalation 3" is applicable to the current situation.
-            </p>
-            <p className="text-muted-foreground leading-relaxed mb-6">
-              Failures should make things worse in a mundane or absurd way. Encourage specific, 
-              ridiculous skills. Keep it moving. If a player wants to use their badge reader 
-              expertise to negotiate with a rogue drone, let them roll for it.
-            </p>
-            <p className="text-xs font-mono text-muted-foreground border border-border rounded px-3 py-2 bg-card">
-              The first operator to sign in is automatically granted Shift Supervisor access and can promote others from the GM Panel.
-            </p>
           </div>
         </div>
       </section>
