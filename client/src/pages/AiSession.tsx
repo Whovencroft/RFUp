@@ -391,6 +391,10 @@ export default function AiSession() {
     [actionText, isSubmitting, isRolling, myChar?.xp, sessionId, submitAction, suggestName]
   );
 
+  const isMyTurn = session?.currentTurnUserId === user?.id;
+  useTurnNotification(isMyTurn, session?.title ?? "AI Session");
+  const isEnded = session?.status === "ended";
+
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground font-mono text-sm">
@@ -398,10 +402,6 @@ export default function AiSession() {
       </div>
     );
   }
-
-  const isMyTurn = session.currentTurnUserId === user?.id;
-  useTurnNotification(isMyTurn, session?.title ?? "AI Session");
-  const isEnded = session.status === "ended";
 
   const skills = myChar?.skills && myChar.skills.length > 0
     ? myChar.skills
