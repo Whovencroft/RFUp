@@ -35,6 +35,10 @@ import {
   FileText,
   Shield,
   Send,
+  SkipForward,
+  UserX,
+  ChevronDown,
+  Library,
 } from "lucide-react";
 import { Textarea as TextareaEl } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -280,6 +284,48 @@ export default function AiSession() {
   const [injectTitle, setInjectTitle] = useState("");
   const [injectDesc, setInjectDesc] = useState("");
   const [injectDc, setInjectDc] = useState<string>("");
+  const [injectLibraryId, setInjectLibraryId] = useState<string>(""); // "" = custom
+
+  // Supervisor skip/kick state
+  const [kickConfirmUserId, setKickConfirmUserId] = useState<number | null>(null);
+  const [kickReason, setKickReason] = useState("");
+
+  // Incident library for quick-inject
+  const { data: incidentLibrary } = trpc.incidents.list.useQuery(undefined, {
+    enabled: isGm,
+  });
+
+  // Player activity for 24h inactivity soft-warning
+  const { data: playerActivity } = trpc.aiGm.getPlayerActivity.useQuery(
+    { sessionId },
+    { enabled: isGm, refetchInterval: 60_000 }
+  );
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+  const isActiveRecently = (uid: number) => {
+    const entry = playerActivity?.find((a) => a.userId === uid);
+    if (!entry || entry.lastActionAt === null) return false;
+    return Date.now() - entry.lastActionAt < TWENTY_FOUR_HOURS;
+  };
+
+  const skipTurnMutation = trpc.aiGm.skipTurn.useMutation({
+    onSuccess: () => {
+      refetchSession();
+      refetchMessages();
+      toast.success("Turn skipped.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const kickPlayerMutation = trpc.aiGm.kickPlayer.useMutation({
+    onSuccess: () => {
+      setKickConfirmUserId(null);
+      setKickReason("");
+      refetchSession();
+      refetchMessages();
+      toast.success("Player removed from session.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const injectIncidentMutation = trpc.aiGm.supervisorInjectIncident.useMutation({
     onSuccess: () => {
@@ -770,16 +816,49 @@ export default function AiSession() {
                 </button>
                 {showInjectIncident && (
                   <div className="mt-2 space-y-2">
+                    {/* Library picker */}
+                    {incidentLibrary && incidentLibrary.length > 0 && (
+                      <div className="relative">
+                        <select
+                          value={injectLibraryId}
+                          onChange={(e) => {
+                            const id = e.target.value;
+                            setInjectLibraryId(id);
+                            if (id) {
+                              const inc = incidentLibrary.find((i) => String(i.id) === id);
+                              if (inc) {
+                                setInjectTitle(inc.title);
+                                setInjectDesc(inc.description ?? "");
+                                setInjectDc(String(inc.difficulty ?? ""));
+                              }
+                            } else {
+                              setInjectTitle("");
+                              setInjectDesc("");
+                              setInjectDc("");
+                            }
+                          }}
+                          className="w-full rounded-md border border-border bg-card text-foreground text-xs px-2 py-1.5 font-mono appearance-none pr-6"
+                        >
+                          <option value="">— Custom incident —</option>
+                          {incidentLibrary.map((inc) => (
+                            <option key={inc.id} value={String(inc.id)}>
+                              [{inc.difficulty}] {inc.title}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                      </div>
+                    )}
                     <input
                       type="text"
                       value={injectTitle}
-                      onChange={(e) => setInjectTitle(e.target.value)}
+                      onChange={(e) => { setInjectTitle(e.target.value); setInjectLibraryId(""); }}
                       placeholder="Incident title…"
                       className="w-full rounded-md border border-border bg-card text-foreground text-xs px-2 py-1.5 font-mono"
                     />
                     <TextareaEl
                       value={injectDesc}
-                      onChange={(e) => setInjectDesc(e.target.value)}
+                      onChange={(e) => { setInjectDesc(e.target.value); setInjectLibraryId(""); }}
                       placeholder="Description (optional)…"
                       className="resize-none bg-card border-border text-foreground text-xs"
                       rows={2}
@@ -798,17 +877,69 @@ export default function AiSession() {
                         size="sm"
                         className="flex-1 h-7 px-3 text-xs bg-amber-500 text-black hover:bg-amber-400 gap-1.5"
                         disabled={!injectTitle.trim() || injectIncidentMutation.isPending}
-                        onClick={() => injectIncidentMutation.mutate({
-                          sessionId,
-                          title: injectTitle.trim(),
-                          description: injectDesc.trim() || undefined,
-                          dc: injectDc ? parseInt(injectDc) : undefined,
-                        })}
+                        onClick={() => {
+                          injectIncidentMutation.mutate({
+                            sessionId,
+                            title: injectTitle.trim(),
+                            description: injectDesc.trim() || undefined,
+                            dc: injectDc ? parseInt(injectDc) : undefined,
+                          });
+                          setInjectLibraryId("");
+                        }}
                       >
                         {injectIncidentMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
                         Inject
                       </Button>
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Skip / Kick controls (supervisor mode only, session not ended) */}
+            {isSupervisorMode && !isEnded && (
+              <div className="p-3 border-b border-border shrink-0">
+                <p className="text-xs font-mono text-muted-foreground tracking-widest mb-2 flex items-center gap-1.5">
+                  <UserX className="w-3 h-3" /> PLAYER MANAGEMENT
+                </p>
+                {/* Skip current turn */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-xs font-mono gap-1.5 mb-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                  disabled={skipTurnMutation.isPending}
+                  onClick={() => skipTurnMutation.mutate({ sessionId })}
+                >
+                  {skipTurnMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <SkipForward className="w-3 h-3" />}
+                  Skip Current Turn
+                </Button>
+                {/* Kick player buttons */}
+                {playerOrder.length > 0 && (
+                  <div className="space-y-1">
+                    {playerOrder.map((uid) => {
+                      const char = allChars?.find((c) => c.userId === uid);
+                      const charName = char?.name ?? `Operator #${uid}`;
+                      const isCurrent = uid === (session as any)?.currentTurnUserId;
+                      const activeRecently = isActiveRecently(uid);
+                      return (
+                        <div key={uid} className="flex items-center gap-1.5">
+                          <span className={`flex-1 text-[10px] font-mono truncate ${isCurrent ? "text-primary" : "text-muted-foreground"}`}>
+                            {isCurrent ? "▶ " : ""}{charName}
+                          </span>
+                          {activeRecently && (
+                            <span className="text-[9px] font-mono text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-1 py-0.5 shrink-0">
+                              ACTIVE
+                            </span>
+                          )}
+                          <button
+                            className="text-[10px] font-mono text-red-400 hover:text-red-300 transition-colors px-1 shrink-0"
+                            onClick={() => setKickConfirmUserId(uid)}
+                          >
+                            KICK
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1098,6 +1229,68 @@ export default function AiSession() {
           </div>
         </div>
       )}
+
+      {/* Kick Player Confirmation Dialog */}
+      {kickConfirmUserId !== null && (() => {
+        const kickedChar = allChars?.find((c) => c.userId === kickConfirmUserId);
+        const kickedName = kickedChar?.name ?? `Operator #${kickConfirmUserId}`;
+        return (
+          <Dialog open onOpenChange={(open) => { if (!open) { setKickConfirmUserId(null); setKickReason(""); } }}>
+            <DialogContent className="bg-card border-border max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="font-mono text-sm tracking-widest text-red-400 flex items-center gap-2">
+                  <UserX className="w-4 h-4" /> REMOVE OPERATOR
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground text-xs">
+                  Remove <span className="font-semibold text-foreground">{kickedName}</span> from this session? They will no longer be able to take turns.
+                </DialogDescription>
+              </DialogHeader>
+              {kickConfirmUserId !== null && isActiveRecently(kickConfirmUserId) && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 mb-2">
+                  <span className="text-amber-400 text-[10px] font-mono tracking-widest shrink-0 mt-0.5">WARNING</span>
+                  <p className="text-xs text-amber-300">
+                    This operator submitted an action less than 24 hours ago. They may still be active.
+                  </p>
+                </div>
+              )}
+              <div className="py-2">
+                <label className="text-[10px] font-mono text-muted-foreground tracking-widest block mb-1">REASON (optional)</label>
+                <input
+                  type="text"
+                  value={kickReason}
+                  onChange={(e) => setKickReason(e.target.value)}
+                  placeholder="e.g. No response for 24+ hours"
+                  className="w-full rounded-md border border-border bg-background text-foreground text-xs px-2 py-1.5 font-mono"
+                  maxLength={200}
+                />
+              </div>
+              <DialogFooter className="flex-row gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="flex-1 text-xs font-mono"
+                  onClick={() => { setKickConfirmUserId(null); setKickReason(""); }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 text-xs font-mono bg-red-600 hover:bg-red-500 text-white gap-1.5"
+                  disabled={kickPlayerMutation.isPending}
+                  onClick={() => kickPlayerMutation.mutate({
+                    sessionId,
+                    userId: kickConfirmUserId,
+                    reason: kickReason.trim() || undefined,
+                  })}
+                >
+                  {kickPlayerMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserX className="w-3 h-3" />}
+                  Remove Operator
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
     </div>
   );
 }

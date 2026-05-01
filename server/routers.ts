@@ -907,6 +907,95 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
         if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Invalid or expired invite link." });
         return { sessionId: session.id, title: session.title, status: session.status };
       }),
+
+    // Return each player's last action timestamp for inactivity detection
+    getPlayerActivity: adminProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .query(async ({ input }) => {
+        const session = await getAiSession(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
+        // For each player, find their most recent player-authored message in this session
+        const db = await (await import("./db")).getDb();
+        if (!db) return [];
+        const { aiMessages: msgs } = await import("../drizzle/schema");
+        const { and: andOp, eq: eqOp, desc: descOp, inArray } = await import("drizzle-orm");
+        const results: { userId: number; lastActionAt: number | null }[] = [];
+        for (const uid of playerOrder) {
+          const rows = await db
+            .select({ createdAt: msgs.createdAt })
+            .from(msgs)
+            .where(andOp(eqOp(msgs.sessionId, input.sessionId), eqOp(msgs.authorId, uid), eqOp(msgs.authorType, "player")))
+            .orderBy(descOp(msgs.createdAt))
+            .limit(1);
+          const ts = rows[0]?.createdAt;
+          results.push({ userId: uid, lastActionAt: ts instanceof Date ? ts.getTime() : (ts ?? null) });
+        }
+        return results;
+      }),
+
+    // Supervisor skips the current player's turn (e.g. 24h no response)
+    skipTurn: adminProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getAiSession(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (session.status === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "Session has ended." });
+        const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
+        const currentIdx = playerOrder.indexOf(session.currentTurnUserId ?? -1);
+        const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
+        await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId });
+        // Post a system message noting the skip
+        const skippedChar = await getCharacterByUserId(session.currentTurnUserId ?? 0);
+        const skippedName = skippedChar?.name ?? `Operator #${session.currentTurnUserId}`;
+        await addAiMessage({
+          sessionId: input.sessionId,
+          authorType: "system" as any,
+          authorId: ctx.user.id,
+          authorName: "System",
+          content: `⏭ **${skippedName}'s turn was skipped** by the Shift Supervisor (no response within 24 hours). Turn passed to next operator.`,
+        });
+        return { success: true, nextTurnUserId: nextUserId };
+      }),
+
+    // Supervisor kicks a player from the session
+    kickPlayer: adminProcedure
+      .input(z.object({
+        sessionId: z.number().int(),
+        userId: z.number().int(),
+        reason: z.string().max(200).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getAiSession(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (session.status === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "Session has ended." });
+        const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
+        const kickedIdx = playerOrder.indexOf(input.userId);
+        if (kickedIdx === -1) throw new TRPCError({ code: "BAD_REQUEST", message: "Player not in this session." });
+        // Remove the player from the turn order
+        const newOrder = playerOrder.filter((id) => id !== input.userId);
+        // If it was their turn, advance to next player
+        let nextTurnUserId = session.currentTurnUserId;
+        if (session.currentTurnUserId === input.userId) {
+          nextTurnUserId = newOrder.length > 0 ? newOrder[kickedIdx % newOrder.length] : null;
+        }
+        await updateAiSession(input.sessionId, {
+          playerOrder: JSON.stringify(newOrder),
+          currentTurnUserId: nextTurnUserId ?? undefined,
+        });
+        // Post a system message
+        const kickedChar = await getCharacterByUserId(input.userId);
+        const kickedName = kickedChar?.name ?? `Operator #${input.userId}`;
+        const reason = input.reason ? ` Reason: ${input.reason}` : " (no response within 24 hours)";
+        await addAiMessage({
+          sessionId: input.sessionId,
+          authorType: "system" as any,
+          authorId: ctx.user.id,
+          authorName: "System",
+          content: `🚫 **${kickedName} has been removed from the session** by the Shift Supervisor.${reason}`,
+        });
+        return { success: true, newPlayerOrder: newOrder, nextTurnUserId };
+      }),
   }),
 
   // ── Session Join Requests ─────────────────────────────────────────────────
@@ -1088,3 +1177,4 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
 });
 
 export type AppRouter = typeof appRouter;
+

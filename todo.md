@@ -226,3 +226,15 @@
 - [x] Backend: aiGm.submitAction — passes xpAwarded flag to addAiMessage so it's tracked in DB
 - [x] Backend: aiGm.supervisorRespond — passes xpAwarded flag to addAiMessage
 - [x] Frontend: Debrief page — XP EARNED THIS SHIFT section shows per-operator XP earned
+
+## Feature: Incident Quick-Inject + Skip/Kick Player
+- [x] Backend: aiGm.skipTurn (adminProcedure) — advance turn to next player, post a system message noting the skip
+- [x] Backend: aiGm.kickPlayer (adminProcedure) — remove player from playerOrder, post system message, if it was their turn advance to next
+- [x] Frontend: AiSession Supervisor panel — Inject Incident section gets a dropdown to pick from incident library (title + difficulty badge), pre-fills title/description/DC fields
+- [x] Frontend: AiSession Supervisor panel — PLAYER MANAGEMENT section with Skip Current Turn button and per-player KICK buttons
+- [x] Frontend: AiSession — Kick confirmation dialog with optional reason field and Remove Operator button
+
+## Feature: Skip/Kick 24h Soft Warning
+- [x] Backend: aiGm.getPlayerActivity — return each player's last action timestamp for the session so frontend can compute inactivity duration
+- [x] Frontend: AiSession PLAYER MANAGEMENT — show "ACTIVE" amber badge next to player name if they acted within 24h; skip/kick always available
+- [x] Frontend: AiSession kick dialog — show amber WARNING banner if the player was active within 24h
