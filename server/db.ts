@@ -107,7 +107,7 @@ export async function createCharacter(data: InsertCharacter) {
 
 export async function updateCharacter(
   id: number,
-  data: Partial<Pick<InsertCharacter, "name" | "jobTitle" | "xp" | "callsign" | "avatarUrl" | "avatarPrompt">>
+  data: Partial<Pick<InsertCharacter, "name" | "jobTitle" | "xp" | "callsign" | "avatarUrl" | "avatarPrompt" | "bio">>
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
@@ -504,4 +504,34 @@ export async function seedIncidentsIfEmpty() {
   ];
 
   await db.insert(incidents).values(seedData);
+}
+
+// ── Character Session History ──────────────────────────────────────────────
+
+export async function getCharacterSessionHistory(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Find all sessions where this user appears in playerOrder or sent a message
+  const allSessions = await db.select().from(aiSessions).orderBy(desc(aiSessions.createdAt));
+  const participated: Array<{
+    id: number;
+    title: string;
+    status: "active" | "ended";
+    createdAt: Date;
+    debriefContent: string | null;
+  }> = [];
+  for (const session of allSessions) {
+    let playerOrder: number[] = [];
+    try { playerOrder = JSON.parse(session.playerOrder || "[]"); } catch {}
+    if (playerOrder.includes(userId)) {
+      participated.push({
+        id: session.id,
+        title: session.title,
+        status: session.status,
+        createdAt: session.createdAt,
+        debriefContent: session.debriefContent,
+      });
+    }
+  }
+  return participated;
 }

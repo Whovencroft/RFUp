@@ -1,5 +1,4 @@
 import { trpc } from "@/lib/trpc";
-import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Shield, Lock, Eye, Wifi, Users, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +18,7 @@ const categoryIcon = (title: string) => {
 };
 
 export default function Incidents() {
-  const { data: incidents, isLoading } = trpc.incidents.list.useQuery();
+  const { data: incidents, isLoading } = trpc.incidents.active.useQuery();
 
   return (
     <div className="container py-8">
@@ -27,8 +26,8 @@ export default function Incidents() {
         <p className="text-xs font-mono text-primary mb-2 tracking-widest">FACILITY 404</p>
         <h1 className="text-3xl font-display font-semibold text-foreground mb-2">Incident Board</h1>
         <p className="text-muted-foreground text-sm max-w-xl">
-          Active and archived security incidents for Facility 404. Each incident includes a 
-          difficulty rating reflecting the opposing roll the Shift Supervisor will set.
+          Active security incidents currently posted by the Shift Supervisor. 
+          Each incident includes a difficulty rating for the opposing roll.
         </p>
       </div>
 
@@ -36,37 +35,33 @@ export default function Incidents() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </div>
+      ) : !incidents || incidents.length === 0 ? (
+        <div className="text-center py-20">
+          <AlertTriangle className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm">No active incidents. Either the facility is secure, or something is very wrong.</p>
+          <p className="text-muted-foreground/60 text-xs mt-1">The Shift Supervisor will post incidents when a session begins.</p>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {(incidents ?? []).map((incident) => {
+          {incidents.map((incident) => {
             const diff = difficultyLabel(incident.difficulty);
             const Icon = categoryIcon(incident.title);
             return (
               <div
                 key={incident.id}
-                className={cn(
-                  "p-5 rounded-xl border bg-card transition-all hover:border-primary/30 group",
-                  incident.isActive
-                    ? "border-primary/40 bg-primary/5"
-                    : "border-border"
-                )}
+                className="p-5 rounded-xl border border-primary/40 bg-primary/5 transition-all hover:border-primary/60 group"
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-start gap-3">
-                    <div className={cn(
-                      "w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5",
-                      incident.isActive ? "bg-primary/20 border border-primary/30" : "bg-muted border border-border"
-                    )}>
-                      <Icon className={cn("w-4 h-4", incident.isActive ? "text-primary" : "text-muted-foreground")} />
+                    <div className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 bg-primary/20 border border-primary/30">
+                      <Icon className="w-4 h-4 text-primary" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-sm font-semibold text-foreground leading-snug">{incident.title}</h3>
-                        {incident.isActive && (
-                          <span className="text-[10px] font-mono text-primary border border-primary/30 bg-primary/10 rounded-full px-2 py-0.5 animate-pulse">
-                            ACTIVE
-                          </span>
-                        )}
+                        <span className="text-[10px] font-mono text-primary border border-primary/30 bg-primary/10 rounded-full px-2 py-0.5 animate-pulse">
+                          ACTIVE
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -91,13 +86,6 @@ export default function Incidents() {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {!isLoading && (!incidents || incidents.length === 0) && (
-        <div className="text-center py-20">
-          <AlertTriangle className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground text-sm">No incidents on record. Suspiciously quiet.</p>
         </div>
       )}
     </div>

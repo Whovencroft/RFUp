@@ -21,6 +21,7 @@ vi.mock("./db", () => ({
   clearSessionLog: vi.fn().mockResolvedValue(undefined),
   getAllUsers: vi.fn().mockResolvedValue([]),
   setUserRole: vi.fn().mockResolvedValue(undefined),
+  getCharacterSessionHistory: vi.fn(),
 }));
 
 import * as db from "./db";
@@ -189,5 +190,52 @@ describe("gm.clearSessionLog", () => {
   it("blocks non-admin from clearing the session log", async () => {
     const caller = appRouter.createCaller(makeCtx());
     await expect(caller.gm.clearSessionLog()).rejects.toThrow("Shift Supervisor access required");
+  });
+});
+
+// ── incidents.active tests ──────────────────────────────────────────────────
+describe("incidents.active", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns only active incidents", async () => {
+    vi.mocked(db.getActiveIncidents).mockResolvedValue([
+      { id: 2, title: "Rogue Device", description: "...", difficulty: 9, isActive: true, createdBy: null, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    const ctx: TrpcContext = { user: null, req: { protocol: "https", headers: {} } as TrpcContext["req"], res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"] };
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.incidents.active();
+    expect(result).toHaveLength(1);
+    expect(result[0].isActive).toBe(true);
+    expect(result[0].title).toBe("Rogue Device");
+  });
+
+  it("returns empty array when no active incidents", async () => {
+    vi.mocked(db.getActiveIncidents).mockResolvedValue([]);
+    const ctx: TrpcContext = { user: null, req: { protocol: "https", headers: {} } as TrpcContext["req"], res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"] };
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.incidents.active();
+    expect(result).toHaveLength(0);
+  });
+});
+
+// ── character.getSessionHistory tests ──────────────────────────────────────
+describe("character.getSessionHistory", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns session history for authenticated user", async () => {
+    const mockHistory = [
+      { id: 1, title: "Night Shift Alpha", status: "ended" as const, createdAt: new Date(), debriefContent: "Great work tonight." },
+    ];
+    vi.mocked(db.getCharacterSessionHistory).mockResolvedValue(mockHistory);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.character.getSessionHistory();
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toBe("Night Shift Alpha");
+  });
+
+  it("requires authentication", async () => {
+    const ctx: TrpcContext = { user: null, req: { protocol: "https", headers: {} } as TrpcContext["req"], res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"] };
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.character.getSessionHistory()).rejects.toThrow();
   });
 });

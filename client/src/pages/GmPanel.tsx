@@ -138,6 +138,15 @@ export default function GmPanel() {
     onError: (err: { message: string }) => toast.error(err.message),
   });
 
+  const generateBriefing = trpc.shiftSchedules.generateBriefing.useMutation({
+    onSuccess: (data) => {
+      setSchedLabel(data.label);
+      setSchedDesc(data.briefingMessage);
+      toast.success("AI briefing generated. Review and save.");
+    },
+    onError: (e) => toast.error("Briefing generation failed: " + e.message),
+  });
+
   const { data: aiSessions, refetch: refetchAiSessions } = trpc.aiGm.listSessions.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
   });
@@ -590,8 +599,20 @@ export default function GmPanel() {
                 <p className="text-xs text-muted-foreground mt-1">Format: sec min hour day month weekday — e.g. <code className="font-mono">0 0 9 * * 1</code> = every Monday 9 AM</p>
               </div>
               <div>
-                <Label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">BRIEFING MESSAGE (optional)</Label>
-                <Textarea value={schedDesc} onChange={(e) => setSchedDesc(e.target.value)} placeholder="What should the AI post as the shift briefing?" className="bg-input border-border text-foreground resize-none" rows={3} />
+                <div className="flex items-center justify-between mb-1.5">
+                  <Label className="text-xs font-mono text-muted-foreground tracking-widest">BRIEFING MESSAGE</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-xs border-primary/30 text-primary hover:bg-primary/10 gap-1"
+                    onClick={() => generateBriefing.mutate()}
+                    disabled={generateBriefing.isPending}
+                  >
+                    {generateBriefing.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bot className="w-3 h-3" />}
+                    Generate
+                  </Button>
+                </div>
+                <Textarea value={schedDesc} onChange={(e) => setSchedDesc(e.target.value)} placeholder="What should the AI post as the shift briefing? Click Generate to auto-fill from the incident pool." className="bg-input border-border text-foreground resize-none" rows={3} />
               </div>
               <Button
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2"

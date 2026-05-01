@@ -33,6 +33,7 @@ export const characters = mysqlTable("characters", {
   callsign: varchar("callsign", { length: 64 }),          // NEW: short callsign
   avatarUrl: text("avatarUrl"),                            // NEW: AI-generated avatar URL
   avatarPrompt: text("avatarPrompt"),                      // NEW: prompt used to generate avatar
+  bio: text("bio"),                                          // NEW: player-written backstory/bio
   xp: int("xp").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

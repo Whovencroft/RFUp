@@ -10,12 +10,15 @@ import {
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 
-const navItems = [
+const publicNavItems = [
   { href: "/", label: "Home", icon: Home },
   { href: "/lobby", label: "Enter the Facility", icon: Shield },
   { href: "/play", label: "Operator File", icon: Dices },
   { href: "/incidents", label: "Incidents", icon: AlertTriangle },
   { href: "/sessions", label: "AI Sessions", icon: Bot },
+];
+
+const adminNavItems = [
   { href: "/log", label: "Session Log", icon: ScrollText },
 ];
 
@@ -79,7 +82,10 @@ export default function NavBar() {
 
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1">
-            {navItems.map(({ href, label, icon }) => (
+            {publicNavItems.map(({ href, label, icon }) => (
+              <NavLink key={href} href={href} label={label} icon={icon} />
+            ))}
+            {isAdmin && adminNavItems.map(({ href, label, icon }) => (
               <NavLink key={href} href={href} label={label} icon={icon} />
             ))}
             {isAdmin && (
@@ -155,12 +161,15 @@ export default function NavBar() {
 
         {/* Drawer nav links */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {navItems.map(({ href, label, icon }) => (
+          {publicNavItems.map(({ href, label, icon }) => (
             <NavLink key={href} href={href} label={label} icon={icon} />
           ))}
           {isAdmin && (
             <>
               <div className="border-t border-border my-2" />
+              {adminNavItems.map(({ href, label, icon }) => (
+                <NavLink key={href} href={href} label={label} icon={icon} />
+              ))}
               <NavLink href="/gm" label="Shift Supervisor" icon={Settings} amber />
             </>
           )}

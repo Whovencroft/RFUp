@@ -5,7 +5,7 @@ import { getLoginUrl } from "@/const";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -14,45 +14,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Dices, Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X, AlertTriangle, Printer, GitBranch, Radio, Sparkles } from "lucide-react";
+import {
+  Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X,
+  Printer, GitBranch, Radio, Sparkles, User, BookOpen, History, Award,
+} from "lucide-react";
 import { Link } from "wouter";
-import { useEffect } from "react";
 import { cn } from "@/lib/utils";
-// ── Dice Face ──────────────────────────────────────────────────────────────
-function DieFace({ value, rolling, isSix }: { value: number; rolling: boolean; isSix: boolean }) {
-  const dots: Record<number, number[][]> = {
-    1: [[50, 50]],
-    2: [[25, 25], [75, 75]],
-    3: [[25, 25], [50, 50], [75, 75]],
-    4: [[25, 25], [75, 25], [25, 75], [75, 75]],
-    5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
-    6: [[25, 25], [75, 25], [25, 50], [75, 50], [25, 75], [75, 75]],
-  };
-
-  return (
-    <div
-      className={cn(
-        "w-12 h-12 rounded-lg border-2 relative transition-all duration-200",
-        isSix
-          ? "border-primary bg-primary/15 shadow-[0_0_12px_oklch(0.72_0.12_165/0.4)]"
-          : "border-border bg-card",
-        rolling && "dice-rolling"
-      )}
-    >
-      <svg viewBox="0 0 100 100" className="w-full h-full p-1">
-        {(dots[value] ?? []).map(([cx, cy], i) => (
-          <circle
-            key={i}
-            cx={cx}
-            cy={cy}
-            r={isSix ? 10 : 9}
-            fill={isSix ? "oklch(0.72 0.12 165)" : "oklch(0.75 0.01 240)"}
-          />
-        ))}
-      </svg>
-    </div>
-  );
-}
 
 // ── Character Creation ─────────────────────────────────────────────────────
 function CharacterCreation({ onCreated }: { onCreated: () => void }) {
@@ -107,13 +74,24 @@ function CharacterCreation({ onCreated }: { onCreated: () => void }) {
 }
 
 // ── Character Edit ────────────────────────────────────────────────────────
-function CharacterEdit({ character, onDone }: { character: { id: number; name: string; jobTitle: string; callsign?: string | null }; onDone: () => void }) {
+function CharacterEdit({
+  character,
+  onDone,
+}: {
+  character: { id: number; name: string; jobTitle: string; callsign?: string | null; bio?: string | null };
+  onDone: () => void;
+}) {
   const [name, setName] = useState(character.name);
   const [jobTitle, setJobTitle] = useState(character.jobTitle);
   const [callsign, setCallsign] = useState(character.callsign ?? "");
+  const [bio, setBio] = useState(character.bio ?? "");
   const utils = trpc.useUtils();
   const update = trpc.character.update.useMutation({
-    onSuccess: () => { toast.success("Operator file updated."); utils.character.get.invalidate(); onDone(); },
+    onSuccess: () => {
+      toast.success("Operator file updated.");
+      utils.character.get.invalidate();
+      onDone();
+    },
     onError: (e) => toast.error(e.message),
   });
   return (
@@ -130,8 +108,30 @@ function CharacterEdit({ character, onDone }: { character: { id: number; name: s
         <Label className="text-xs font-mono text-muted-foreground mb-1 block">CALLSIGN <span className="opacity-50">(optional)</span></Label>
         <Input value={callsign} onChange={(e) => setCallsign(e.target.value)} placeholder="e.g. GHOST-7, STATIC, WRAITH" className="bg-input border-border text-foreground h-8 text-sm" />
       </div>
+      <div>
+        <Label className="text-xs font-mono text-muted-foreground mb-1 block">PERSONNEL BIO <span className="opacity-50">(optional)</span></Label>
+        <Textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          placeholder="Background, specializations, notable incidents survived..."
+          className="bg-input border-border text-foreground text-sm resize-none"
+          rows={3}
+        />
+      </div>
       <div className="flex gap-2">
-        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-3 text-xs gap-1" disabled={update.isPending} onClick={() => update.mutate({ name: name.trim(), jobTitle: jobTitle.trim(), callsign: callsign.trim() || undefined })}>
+        <Button
+          size="sm"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-3 text-xs gap-1"
+          disabled={update.isPending}
+          onClick={() =>
+            update.mutate({
+              name: name.trim(),
+              jobTitle: jobTitle.trim(),
+              callsign: callsign.trim() || undefined,
+              bio: bio.trim() || undefined,
+            })
+          }
+        >
           <Check className="w-3 h-3" /> Save
         </Button>
         <Button variant="ghost" size="sm" className="h-7 px-3 text-xs gap-1" onClick={onDone}>
@@ -179,25 +179,12 @@ export default function Play() {
 
   const { data: character, isLoading } = trpc.character.get.useQuery(undefined, {
     enabled: isAuthenticated,
-    refetchInterval: 5000,
-  });
-
-  // Active incident — poll every 10s so the banner stays live during a session
-  const { data: activeIncidents } = trpc.incidents.list.useQuery(undefined, {
-    enabled: isAuthenticated,
     refetchInterval: 10000,
-    select: (data) => data.filter((i) => i.isActive),
   });
-  // Use the first active incident as the "primary" for auto-syncing difficulty
-  const activeIncident = activeIncidents?.[0] ?? null;
-  const hasMultiple = (activeIncidents?.length ?? 0) > 1;
 
-  // Auto-sync opposing roll when the active incident changes
-  useEffect(() => {
-    if (activeIncident) {
-      setOpposingRoll(activeIncident.difficulty);
-    }
-  }, [activeIncident?.id, activeIncident?.difficulty]);
+  const { data: sessionHistory, isLoading: historyLoading } = trpc.character.getSessionHistory.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
 
   const [editingChar, setEditingChar] = useState(false);
   const [showLineage, setShowLineage] = useState(false);
@@ -215,63 +202,6 @@ export default function Play() {
     },
     onError: (e) => { setGeneratingAvatar(false); toast.error(e.message); },
   });
-
-  // Dice state
-  const [rolling, setRolling] = useState(false);
-  const [rollResult, setRollResult] = useState<{ dice: number[]; sum: number; success: boolean; allSixes: boolean; newXp: number } | null>(null);
-  const [selectedSkillId, setSelectedSkillId] = useState<number | null>(null);
-  const [xpToSpend, setXpToSpend] = useState(0);
-  const [opposingRoll, setOpposingRoll] = useState(7);
-
-  // New skill dialog
-  const [showSkillDialog, setShowSkillDialog] = useState(false);
-  const [newSkillName, setNewSkillName] = useState("");
-  const [pendingSkillLevel, setPendingSkillLevel] = useState(2);
-
-  const rollMutation = trpc.dice.roll.useMutation({
-    onSuccess: (data) => {
-      setRolling(false);
-      setRollResult(data);
-      utils.character.get.invalidate();
-      if (data.allSixes) {
-        const skill = character?.skills?.find((s) => s.id === selectedSkillId);
-        setPendingSkillLevel((skill?.level ?? 1) + 1);
-        setNewSkillName(skill?.name ? `${skill.name} (Specialized)` : "");
-        setShowSkillDialog(true);
-        toast.success("All sixes! You may gain a new skill.", { duration: 5000 });
-      } else if (!data.success) {
-        toast.info("Failed roll — 1 XP awarded.");
-      } else {
-        toast.success("Success!");
-      }
-    },
-    onError: (e) => { setRolling(false); toast.error(e.message); },
-  });
-
-  const addSkillMutation = trpc.skills.add.useMutation({
-    onSuccess: () => {
-      toast.success(`New skill added!`);
-      setShowSkillDialog(false);
-      utils.character.get.invalidate();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const handleRoll = () => {
-    if (!character || selectedSkillId === null) return;
-    const skill = character.skills?.find((s) => s.id === selectedSkillId);
-    if (!skill) return;
-    setRolling(true);
-    setRollResult(null);
-    setTimeout(() => {
-      rollMutation.mutate({
-        skillName: skill.name,
-        skillLevel: skill.level,
-        xpToSpend,
-        opposingRoll,
-      });
-    }, 550);
-  };
 
   if (authLoading) {
     return (
@@ -319,14 +249,32 @@ export default function Play() {
     );
   }
 
-  const selectedSkill = character.skills?.find((s) => s.id === selectedSkillId);
+  // Extract commendations from ended sessions' debrief content
+  const commendations: { sessionTitle: string; excerpt: string }[] = [];
+  if (sessionHistory) {
+    for (const session of sessionHistory) {
+      if (session.status === "ended" && session.debriefContent) {
+        // Look for commendation mentions in the debrief
+        const lines = session.debriefContent.split("\n").filter(Boolean);
+        const commLine = lines.find((l) =>
+          /commend|award|mvp|most creative|outstanding|citation/i.test(l)
+        );
+        if (commLine) {
+          commendations.push({
+            sessionTitle: session.title,
+            excerpt: commLine.trim().slice(0, 200),
+          });
+        }
+      }
+    }
+  }
 
   return (
     <div className="container py-8">
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* ── Left: Character Sheet ── */}
+        {/* ── Left: Identity + Skills ── */}
         <div className="lg:col-span-1 space-y-4">
-          {/* Identity */}
+          {/* Identity Card */}
           <div className="p-5 rounded-xl border border-border bg-card">
             <div className="flex items-start justify-between mb-1">
               <p className="text-xs font-mono text-primary tracking-widest">OPERATOR FILE</p>
@@ -346,11 +294,12 @@ export default function Play() {
                 )}
               </div>
             </div>
+
             {editingChar ? (
               <CharacterEdit character={character} onDone={() => setEditingChar(false)} />
             ) : (
               <>
-                {/* Avatar */}
+                {/* Avatar + Name */}
                 <div className="flex items-start gap-3 mt-2">
                   <button
                     onClick={() => setShowAvatarDialog(true)}
@@ -358,9 +307,9 @@ export default function Play() {
                     title="Generate avatar"
                   >
                     {character.avatarUrl ? (
-                      <img src={character.avatarUrl} alt="Avatar" className="w-14 h-14 rounded-lg object-cover border border-border group-hover:border-primary/50 transition-colors" />
+                      <img src={character.avatarUrl} alt="Avatar" className="w-16 h-16 rounded-lg object-cover border border-border group-hover:border-primary/50 transition-colors" />
                     ) : (
-                      <div className="w-14 h-14 rounded-lg border border-dashed border-border bg-background flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                      <div className="w-16 h-16 rounded-lg border border-dashed border-border bg-background flex items-center justify-center group-hover:border-primary/50 transition-colors">
                         <Sparkles className="w-5 h-5 text-muted-foreground/40 group-hover:text-primary/60" />
                       </div>
                     )}
@@ -368,8 +317,8 @@ export default function Play() {
                       <Sparkles className="w-3 h-3 text-primary" />
                     </div>
                   </button>
-                  <div className="min-w-0">
-                    <h2 className="text-2xl font-display font-bold text-foreground leading-tight">{character.name}</h2>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-xl font-display font-bold text-foreground leading-tight">{character.name}</h2>
                     {character.callsign && (
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <Radio className="w-3 h-3 text-primary flex-shrink-0" />
@@ -379,6 +328,8 @@ export default function Play() {
                     <p className="text-sm text-muted-foreground mt-0.5">{character.jobTitle}</p>
                   </div>
                 </div>
+
+                {/* XP + skill count */}
                 <div className="mt-4 flex items-center gap-3">
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
                     <Zap className="w-3.5 h-3.5 text-amber-400" />
@@ -387,12 +338,37 @@ export default function Play() {
                   <span className="text-xs text-muted-foreground font-mono">
                     {character.skills?.length ?? 0} skill{(character.skills?.length ?? 0) !== 1 ? "s" : ""}
                   </span>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {(sessionHistory?.length ?? 0)} shift{(sessionHistory?.length ?? 0) !== 1 ? "s" : ""}
+                  </span>
                 </div>
               </>
             )}
           </div>
 
-          {/* Skills */}
+          {/* Bio */}
+          {!editingChar && (
+            <div className="p-5 rounded-xl border border-border bg-card">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-mono text-primary tracking-widest flex items-center gap-1.5">
+                  <BookOpen className="w-3 h-3" />
+                  PERSONNEL BIO
+                </p>
+                <button onClick={() => setEditingChar(true)} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </div>
+              {character.bio ? (
+                <p className="text-sm text-muted-foreground leading-relaxed">{character.bio}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground/50 italic">
+                  No bio on file. Click the edit icon to add your operator's background.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Skill Manifest */}
           <div className="p-5 rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-mono text-primary tracking-widest">SKILL MANIFEST</p>
@@ -409,20 +385,12 @@ export default function Play() {
                 </button>
               )}
             </div>
-            {showLineage && (
-              <SkillLineageTree skills={character.skills ?? []} />
-            )}
+            {showLineage && <SkillLineageTree skills={character.skills ?? []} />}
             <div className="space-y-2">
               {(character.skills ?? []).map((skill) => (
-                <button
+                <div
                   key={skill.id}
-                  onClick={() => { setSelectedSkillId(skill.id); setRollResult(null); }}
-                  className={cn(
-                    "w-full flex items-center justify-between p-3 rounded-lg border text-left transition-all",
-                    selectedSkillId === skill.id
-                      ? "border-primary/50 bg-primary/10"
-                      : "border-border bg-background hover:border-border/80 hover:bg-accent/50"
-                  )}
+                  className="w-full flex items-center justify-between p-3 rounded-lg border border-border bg-background"
                 >
                   <div>
                     <p className="text-sm font-medium text-foreground">{skill.name}</p>
@@ -430,187 +398,102 @@ export default function Play() {
                   </div>
                   <div className="flex items-center gap-1">
                     {Array.from({ length: skill.level }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={cn(
-                          "w-3 h-3",
-                          selectedSkillId === skill.id ? "text-primary fill-primary" : "text-muted-foreground fill-muted-foreground"
-                        )}
-                      />
+                      <Star key={i} className="w-3 h-3 text-muted-foreground fill-muted-foreground" />
                     ))}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground/60 mt-3 font-mono">
+              Dice rolling happens inside AI sessions.
+            </p>
           </div>
         </div>
 
-        {/* ── Right: Dice Roller ── */}
+        {/* ── Right: Session History + Commendations ── */}
         <div className="lg:col-span-2 space-y-4">
-
-          {/* Active Incident Banner */}
-          {activeIncidents && activeIncidents.length > 0 ? (
-            <div className="space-y-2">
-              {activeIncidents.map((inc) => (
-                <div key={inc.id} className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/5 flex items-start gap-3">
-                  <div className="mt-0.5 shrink-0 w-7 h-7 rounded-md bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-mono text-amber-400 tracking-widest">ACTIVE INCIDENT</span>
-                      <span className="text-xs font-mono border border-amber-500/30 bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded">
-                        DC {inc.difficulty}
-                      </span>
-                    </div>
-                    <p className="text-sm font-semibold text-foreground">{inc.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{inc.description}</p>
-                  </div>
-                </div>
-              ))}
-              {hasMultiple && (
-                <p className="text-xs text-muted-foreground font-mono px-1">
-                  Multiple incidents active — opposing roll auto-set to DC {activeIncident?.difficulty}.
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="p-3 rounded-xl border border-border bg-muted/20 flex items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-muted-foreground/50" />
-              <p className="text-xs text-muted-foreground font-mono">No active incident — Shift Supervisor has not set a scenario.</p>
-            </div>
-          )}
-
+          {/* Session History */}
           <div className="p-5 rounded-xl border border-border bg-card">
-            <p className="text-xs font-mono text-primary mb-3 tracking-widest">DICE ROLLER</p>
-
-            {!selectedSkill ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                Select a skill from your manifest to roll.
-              </p>
+            <p className="text-xs font-mono text-primary tracking-widest mb-4 flex items-center gap-1.5">
+              <History className="w-3 h-3" />
+              SHIFT HISTORY
+            </p>
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              </div>
+            ) : !sessionHistory || sessionHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <User className="w-7 h-7 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No shifts on record yet.</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  Join an AI session from the{" "}
+                  <Link href="/lobby" className="text-primary hover:underline">Lobby</Link> to start your first shift.
+                </p>
+              </div>
             ) : (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-lg font-display font-semibold text-foreground">{selectedSkill.name}</p>
-                    <p className="text-xs font-mono text-muted-foreground">Level {selectedSkill.level} — rolling {selectedSkill.level}d6</p>
-                  </div>
-                  <Badge variant="outline" className="font-mono border-primary/30 text-primary">
-                    {selectedSkill.level}d6
-                  </Badge>
-                </div>
-
-                {/* Controls */}
-                <div className="grid sm:grid-cols-2 gap-4 mb-5">
-                  <div>
-                    <Label className="text-xs font-mono text-muted-foreground mb-1.5 block">
-                      OPPOSING ROLL (Difficulty)
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-8 h-8 p-0 border-border"
-                        onClick={() => setOpposingRoll((v) => Math.max(2, v - 1))}
-                      >−</Button>
-                      <span className="font-mono text-lg text-foreground w-8 text-center">{opposingRoll}</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-8 h-8 p-0 border-border"
-                        onClick={() => setOpposingRoll((v) => Math.min(30, v + 1))}
-                      >+</Button>
+              <div className="space-y-3">
+                {sessionHistory.map((session) => (
+                  <Link key={session.id} href={`/sessions/${session.id}`}>
+                    <div className="flex items-start justify-between p-4 rounded-lg border border-border bg-background hover:border-primary/30 transition-colors cursor-pointer group">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                            {session.title}
+                          </p>
+                          <span
+                            className={cn(
+                              "text-[10px] font-mono border rounded px-1.5 py-0.5 shrink-0",
+                              session.status === "active"
+                                ? "text-primary border-primary/30 bg-primary/10 animate-pulse"
+                                : "text-muted-foreground border-border bg-muted"
+                            )}
+                          >
+                            {session.status === "active" ? "ACTIVE" : "ENDED"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {new Date(session.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+                        </p>
+                        {session.status === "ended" && session.debriefContent && (
+                          <p className="text-xs text-muted-foreground/70 mt-1.5 line-clamp-2 leading-relaxed">
+                            {session.debriefContent.split("\n").find(Boolean)?.slice(0, 160)}…
+                          </p>
+                        )}
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5 ml-3" />
                     </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-mono text-muted-foreground mb-1.5 block">
-                      SPEND XP (convert die to 6)
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-8 h-8 p-0 border-border"
-                        onClick={() => setXpToSpend((v) => Math.max(0, v - 1))}
-                        disabled={xpToSpend === 0}
-                      >−</Button>
-                      <span className={cn("font-mono text-lg w-8 text-center", xpToSpend > 0 ? "text-amber-400" : "text-foreground")}>
-                        {xpToSpend}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-8 h-8 p-0 border-border"
-                        onClick={() => setXpToSpend((v) => Math.min(character.xp, selectedSkill.level, v + 1))}
-                        disabled={xpToSpend >= Math.min(character.xp, selectedSkill.level)}
-                      >+</Button>
-                      <span className="text-xs text-muted-foreground font-mono">
-                        ({character.xp} available)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 text-base gap-2"
-                  onClick={handleRoll}
-                  disabled={rolling || rollMutation.isPending}
-                >
-                  {rolling ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Rolling…</>
-                  ) : (
-                    <><Dices className="w-4 h-4" /> Roll {selectedSkill.level}d6</>
-                  )}
-                </Button>
-              </>
+                  </Link>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* Roll Result */}
-          {rollResult && (
-            <div
-              className={cn(
-                "p-5 rounded-xl border fade-in-up",
-                rollResult.allSixes
-                  ? "border-primary/50 bg-primary/10"
-                  : rollResult.success
-                  ? "border-primary/30 bg-primary/5"
-                  : "border-destructive/30 bg-destructive/5"
-              )}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-xs font-mono text-muted-foreground mb-1">ROLL RESULT</p>
-                  <p
-                    className={cn(
-                      "text-2xl font-display font-bold",
-                      rollResult.allSixes
-                        ? "text-primary"
-                        : rollResult.success
-                        ? "text-primary"
-                        : "text-destructive"
-                    )}
-                  >
-                    {rollResult.allSixes ? "ALL SIXES — NEW SKILL!" : rollResult.success ? "SUCCESS" : "FAILURE"}
-                  </p>
-                  {!rollResult.success && (
-                    <p className="text-xs text-amber-400 font-mono mt-1">+1 XP awarded</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-mono text-muted-foreground">SUM vs DIFFICULTY</p>
-                  <p className="text-2xl font-mono font-bold text-foreground">
-                    {rollResult.sum} <span className="text-muted-foreground text-base">vs</span> {opposingRoll}
-                  </p>
-                </div>
+          {/* Commendations */}
+          <div className="p-5 rounded-xl border border-border bg-card">
+            <p className="text-xs font-mono text-primary tracking-widest mb-4 flex items-center gap-1.5">
+              <Award className="w-3 h-3" />
+              COMMENDATIONS
+            </p>
+            {commendations.length === 0 ? (
+              <div className="text-center py-6">
+                <Award className="w-7 h-7 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No commendations on file.</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  Commendations are awarded by the AI Shift Supervisor at the end of a shift.
+                </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {rollResult.dice.map((d, i) => (
-                  <DieFace key={i} value={d} rolling={false} isSix={d === 6} />
+            ) : (
+              <div className="space-y-3">
+                {commendations.map((c, i) => (
+                  <div key={i} className="p-4 rounded-lg border border-amber-500/20 bg-amber-500/5">
+                    <p className="text-xs font-mono text-amber-400 mb-1 tracking-widest">{c.sessionTitle}</p>
+                    <p className="text-sm text-foreground leading-relaxed">{c.excerpt}</p>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -648,47 +531,6 @@ export default function Play() {
               ) : (
                 <><Sparkles className="w-4 h-4 mr-2" /> Generate</>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* New Skill Dialog */}
-      <Dialog open={showSkillDialog} onOpenChange={setShowSkillDialog}>
-        <DialogContent className="bg-card border-border text-foreground">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">
-              All Sixes — New Skill Unlocked
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            You rolled all 6s using <span className="text-primary font-medium">{selectedSkill?.name}</span>. 
-            Name your new Level {pendingSkillLevel} skill — it should be more specific than the one you used.
-          </p>
-          <div>
-            <Label className="text-xs font-mono text-muted-foreground mb-1.5 block">NEW SKILL NAME</Label>
-            <Input
-              value={newSkillName}
-              onChange={(e) => setNewSkillName(e.target.value)}
-              placeholder={`e.g. ${selectedSkill?.name} (Specialized) ${pendingSkillLevel}`}
-              className="bg-input border-border text-foreground"
-              autoFocus
-            />
-            <p className="text-xs text-muted-foreground mt-1.5 font-mono">
-              This will be a Level {pendingSkillLevel} skill — you roll {pendingSkillLevel}d6 when using it.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowSkillDialog(false)}>Skip</Button>
-            <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              disabled={!newSkillName.trim() || addSkillMutation.isPending}
-              onClick={() =>
-                addSkillMutation.mutate({ name: newSkillName.trim(), level: pendingSkillLevel })
-              }
-            >
-              {addSkillMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-              Add Skill
             </Button>
           </DialogFooter>
         </DialogContent>

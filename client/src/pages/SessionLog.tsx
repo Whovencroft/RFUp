@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
-import { ScrollText, Dices, Star, Zap, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { ScrollText, Dices, Star, Zap, AlertTriangle, Loader2, RefreshCw, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -20,16 +21,44 @@ function formatDate(date: Date | string) {
 }
 
 export default function SessionLog() {
+  const { user, loading } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   const { data: entries, isLoading, refetch, isFetching } = trpc.sessionLog.recent.useQuery(
     { limit: 100 },
-    { refetchInterval: 8000 }
+    { refetchInterval: 8000, enabled: isAdmin }
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="container py-20">
+        <div className="max-w-md mx-auto text-center">
+          <div className="w-14 h-14 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-6 h-6 text-destructive" />
+          </div>
+          <p className="text-xs font-mono text-primary mb-2 tracking-widest">ACCESS DENIED</p>
+          <h1 className="text-2xl font-display font-semibold text-foreground mb-3">Restricted Access</h1>
+          <p className="text-muted-foreground text-sm">
+            The Session Log is restricted to Shift Supervisors only. Contact your facility administrator if you believe this is an error.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container py-8">
       <div className="flex items-start justify-between mb-8">
         <div>
-          <p className="text-xs font-mono text-primary mb-2 tracking-widest">FACILITY 404</p>
+          <p className="text-xs font-mono text-primary mb-2 tracking-widest">FACILITY 404 — SHIFT SUPERVISOR</p>
           <h1 className="text-3xl font-display font-semibold text-foreground mb-2">Session Log</h1>
           <p className="text-muted-foreground text-sm max-w-xl">
             A real-time feed of all operator activity — dice rolls, skill advancements, XP changes, 

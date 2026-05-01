@@ -166,3 +166,14 @@
 - [x] Frontend: /lobby shows open sessions with title, incident, player count, "Request to Join" button
 - [x] Frontend: GM Panel → Personnel tab shows pending join requests with Approve/Deny
 - [x] Frontend: player sees "Request Pending" state after submitting
+
+## Overhaul Batch 2
+- [x] DB: add bio column to characters table
+- [x] Backend: character.update accepts bio field
+- [x] Backend: character.getSessionHistory — sessions player participated in with outcome
+- [x] Backend: shiftSchedules.generateBriefing — AI generates label + briefing message from incident pool
+- [x] Frontend: Operator File page — full dossier (bio, callsign, avatar, skills + lineage, session history, commendations)
+- [x] Frontend: Remove dice roller from Operator File page (rolling only in sessions)
+- [x] Frontend: Session Log — hide from nav and page for non-admin users
+- [x] Frontend: Incident Board — show only active/posted incidents (not the full library)
+- [x] Frontend: Shift Scheduler — add "Generate Briefing" button that calls AI and fills label + message fields

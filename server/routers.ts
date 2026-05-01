@@ -39,6 +39,7 @@ import {
   listShiftSchedules,
   updateShiftSchedule,
   deleteShiftSchedule,
+  getCharacterSessionHistory,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { generateImage } from "./_core/imageGeneration";
@@ -103,6 +104,7 @@ export const appRouter = router({
         name: z.string().min(1).max(128).optional(),
         jobTitle: z.string().min(1).max(128).optional(),
         callsign: z.string().max(64).optional(),
+        bio: z.string().max(2000).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const char = await getCharacterByUserId(ctx.user.id);
@@ -110,6 +112,10 @@ export const appRouter = router({
         await updateCharacter(char.id, input);
         return { success: true };
       }),
+
+    getSessionHistory: protectedProcedure.query(async ({ ctx }) => {
+      return getCharacterSessionHistory(ctx.user.id);
+    }),
 
     listAll: protectedProcedure.query(async () => {
       return getAllCharactersWithSkills();
@@ -805,6 +811,51 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
         await deleteShiftSchedule(input.id);
         return { success: true };
       }),
+
+    generateBriefing: adminProcedure.mutation(async () => {
+      await seedIncidentsIfEmpty();
+      const allIncidents = await getAllIncidents();
+      const incidentList = allIncidents
+        .slice(0, 12)
+        .map((i) => `- ${i.title}: ${i.description.slice(0, 120)}...`)
+        .join("\n");
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: `You are the AI Shift Supervisor for Facility 404, a data center security team. You write dry, bureaucratic shift briefings with a hint of resigned professionalism. You are generating a shift briefing for the next security team rotation.`,
+          },
+          {
+            role: "user",
+            content: `Based on the following active incident pool, generate a shift briefing. Return JSON with two fields: "label" (a short shift title, 3-6 words, e.g. "Alpha Shift — Corridor B Lockdown") and "briefingMessage" (2-3 sentences describing the current threat environment and what operators should prioritize, in the dry bureaucratic tone of Facility 404). No markdown, just the JSON object.\n\nINCIDENT POOL:\n${incidentList}`,
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "shift_briefing",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                label: { type: "string", description: "Short shift title" },
+                briefingMessage: { type: "string", description: "2-3 sentence briefing" },
+              },
+              required: ["label", "briefingMessage"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+      const raw = response.choices[0]?.message?.content ?? "{}";
+      let parsed: { label: string; briefingMessage: string };
+      try {
+        parsed = JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw));
+      } catch {
+        parsed = { label: "Shift Briefing", briefingMessage: "Standard operating procedures in effect. All operators report to assigned stations." };
+      }
+      return parsed;
+    }),
   }),
 });
 
