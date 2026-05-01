@@ -203,3 +203,11 @@
 - [x] Frontend: AiSession — waiting indicator says 'Waiting for Supervisor response' in supervisor mode
 - [x] Frontend: Sessions list — mode badge (AI-LED / SUPERVISOR-LED) and matching icon per session card
 - [x] Frontend: NavBar — renamed 'AI Sessions' to 'Sessions'
+
+## Bug: XP Not Awarded on Failed Rolls in AI Sessions
+- [x] Trace submitAction — AI was narrating XP award but never writing to DB
+- [x] Fix: detect failure (rollTotal <= dcSet) and call updateCharacter to increment XP by 1
+- [x] Belt-and-suspenders: also award XP if AI text explicitly mentions awarding XP
+- [x] Return xpAwarded flag from submitAction so frontend can show toast
+- [x] Frontend: show '+1 XP awarded for a failed roll' toast and refetch character panel
+- [x] Tests: 2 new tests covering XP award on failure and no-award on success (19 total, all passing)

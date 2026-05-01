@@ -676,6 +676,22 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           skillRuling = "partial";
         }
 
+        // Determine if the roll was a failure and award XP
+        // A roll fails when the total is <= the DC set by the AI.
+        // Also award XP if the AI text explicitly mentions awarding XP (belt-and-suspenders).
+        let xpAwarded = false;
+        if (skillRuling !== "denied") {
+          const rollFailed = dcSet !== null && rollTotal <= dcSet;
+          const aiMentionsXp = /award.*1\s*xp|earn.*1\s*xp|gain.*1\s*xp|1\s*xp.*award|xp.*for.*fail/i.test(aiText);
+          if (rollFailed || aiMentionsXp) {
+            const freshChar = await getCharacterByUserId(ctx.user.id);
+            if (freshChar) {
+              await updateCharacter(freshChar.id, { xp: freshChar.xp + 1 });
+              xpAwarded = true;
+            }
+          }
+        }
+
         await addAiMessage({
           sessionId: input.sessionId,
           authorType: "ai",
@@ -706,6 +722,7 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           skillRuling,
           allSixes,
           nextTurnUserId: nextUserId,
+          xpAwarded,
         };
       }),
 

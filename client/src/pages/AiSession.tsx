@@ -330,13 +330,17 @@ export default function AiSession() {
   ) ?? [];
 
   const submitAction = trpc.aiGm.submitAction.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       setActionText("");
       setPendingSkill(null);
       setPendingDice([]);
       setIsSubmitting(false);
       refetchMessages();
       refetchSession();
+      refetchChar();
+      if (data?.xpAwarded) {
+        toast.success("+1 XP awarded for a failed roll.");
+      }
     },
     onError: (e) => {
       toast.error(e.message);

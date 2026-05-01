@@ -22,9 +22,40 @@ vi.mock("./db", () => ({
   getAllUsers: vi.fn().mockResolvedValue([]),
   setUserRole: vi.fn().mockResolvedValue(undefined),
   getCharacterSessionHistory: vi.fn(),
+  getCharacterSessionHistoryByCharId: vi.fn(),
+  // AI session helpers
+  getAiSession: vi.fn(),
+  getAiMessages: vi.fn(),
+  addAiMessage: vi.fn(),
+  updateAiSession: vi.fn(),
+  listAiSessions: vi.fn(),
+  createAiSession: vi.fn(),
+  // Commendations
+  createCommendation: vi.fn(),
+  listCommendationsByCharacter: vi.fn(),
+  listCommendationsBySession: vi.fn(),
+  // Shift schedules
+  createShiftSchedule: vi.fn(),
+  listShiftSchedules: vi.fn(),
+  updateShiftSchedule: vi.fn(),
+  deleteShiftSchedule: vi.fn(),
+  getShiftSchedule: vi.fn(),
+  // Join requests
+  createJoinRequest: vi.fn(),
+  listJoinRequests: vi.fn(),
+  getJoinRequest: vi.fn(),
+  updateJoinRequest: vi.fn(),
+  getAiSessionByInviteToken: vi.fn(),
+  listOpenSessions: vi.fn(),
+}));
+
+// ── Mock LLM so tests don't make real API calls ─────────────────────────────
+vi.mock("./_core/llm", () => ({
+  invokeLLM: vi.fn(),
 }));
 
 import * as db from "./db";
+import * as llm from "./_core/llm";
 
 // ── Context helpers ─────────────────────────────────────────────────────────
 function makeCtx(overrides: Partial<TrpcContext["user"]> = {}): TrpcContext {
@@ -237,5 +268,107 @@ describe("character.getSessionHistory", () => {
     const ctx: TrpcContext = { user: null, req: { protocol: "https", headers: {} } as TrpcContext["req"], res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"] };
     const caller = appRouter.createCaller(ctx);
     await expect(caller.character.getSessionHistory()).rejects.toThrow();
+  });
+});
+
+// ── aiGm.submitAction — XP award on failure ─────────────────────────────────
+function makeAiSession(overrides = {}) {
+  return {
+    id: 1,
+    title: "Night Shift Alpha",
+    status: "active",
+    playerOrder: JSON.stringify([1]),
+    currentTurnUserId: 1,
+    incitingIncidentId: null,
+    contextSummary: null,
+    gmNotes: null,
+    inviteToken: null,
+    debriefContent: null,
+    gmMode: "ai",
+    createdAt: new Date(),
+    incidentTitle: null,
+    incidentDescription: null,
+    incidentDc: null,
+    ...overrides,
+  };
+}
+
+function makeChar(xp = 0) {
+  return {
+    id: 10,
+    userId: 1,
+    name: "Agent Torres",
+    jobTitle: "Night Sentinel",
+    xp,
+    callsign: null,
+    avatarUrl: null,
+    bio: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+describe("aiGm.submitAction — XP award on failure", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("awards 1 XP when roll total is <= DC set by AI", async () => {
+    vi.mocked(db.getAiSession).mockResolvedValue(makeAiSession() as any);
+    vi.mocked(db.getCharacterByUserId).mockResolvedValue(makeChar(0) as any);
+    vi.mocked(db.getSkillsByCharacterId).mockResolvedValue([
+      { id: 1, characterId: 10, name: "Do Anything", level: 1, parentSkillId: null, createdAt: new Date() },
+    ] as any);
+    vi.mocked(db.getAiMessages).mockResolvedValue([]);
+    vi.mocked(db.addAiMessage).mockResolvedValue(undefined as any);
+    vi.mocked(db.updateAiSession).mockResolvedValue(undefined);
+    vi.mocked(db.updateCharacter).mockResolvedValue(undefined);
+
+    // AI sets DC 8 — roll total of 5 is a failure
+    vi.mocked(llm.invokeLLM).mockResolvedValue({
+      choices: [{ message: { content: "You fumble the badge reader. DC 8. Failure — the door stays locked. You earn 1 XP." } }],
+    } as any);
+
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.aiGm.submitAction({
+      sessionId: 1,
+      actionDescription: "I swipe my badge at the door",
+      skillName: "Do Anything",
+      skillLevel: 1,
+      diceResults: [2, 3], // total = 5, below DC 8
+    });
+
+    expect(result.xpAwarded).toBe(true);
+    expect(db.updateCharacter).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({ xp: 1 })
+    );
+  });
+
+  it("does not award XP when roll total beats the DC", async () => {
+    vi.mocked(db.getAiSession).mockResolvedValue(makeAiSession() as any);
+    vi.mocked(db.getCharacterByUserId).mockResolvedValue(makeChar(2) as any);
+    vi.mocked(db.getSkillsByCharacterId).mockResolvedValue([
+      { id: 1, characterId: 10, name: "Do Anything", level: 1, parentSkillId: null, createdAt: new Date() },
+    ] as any);
+    vi.mocked(db.getAiMessages).mockResolvedValue([]);
+    vi.mocked(db.addAiMessage).mockResolvedValue(undefined as any);
+    vi.mocked(db.updateAiSession).mockResolvedValue(undefined);
+    vi.mocked(db.updateCharacter).mockResolvedValue(undefined);
+
+    // AI sets DC 6 — roll total of 12 is a success
+    vi.mocked(llm.invokeLLM).mockResolvedValue({
+      choices: [{ message: { content: "Excellent work. DC 6. Success — the door swings open." } }],
+    } as any);
+
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.aiGm.submitAction({
+      sessionId: 1,
+      actionDescription: "I swipe my badge at the door",
+      skillName: "Do Anything",
+      skillLevel: 1,
+      diceResults: [6, 6], // total = 12, beats DC 6
+    });
+
+    expect(result.xpAwarded).toBe(false);
+    expect(db.updateCharacter).not.toHaveBeenCalled();
   });
 });
