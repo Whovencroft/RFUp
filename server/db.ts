@@ -19,6 +19,8 @@ import {
   InsertSessionJoinRequest,
   shiftSchedules,
   InsertShiftSchedule,
+  commendations,
+  InsertCommendation,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -506,6 +508,29 @@ export async function seedIncidentsIfEmpty() {
   await db.insert(incidents).values(seedData);
 }
 
+// ── Commendations ─────────────────────────────────────────────────────────
+
+export async function createCommendation(
+  data: Omit<InsertCommendation, "id" | "createdAt">
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const [result] = await db.insert(commendations).values(data);
+  return db.select().from(commendations).where(eq(commendations.id, (result as { insertId: number }).insertId)).then((r) => r[0]);
+}
+
+export async function getCommendationsByCharacterId(characterId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(commendations).where(eq(commendations.characterId, characterId)).orderBy(desc(commendations.createdAt));
+}
+
+export async function getCommendationsBySessionId(sessionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(commendations).where(eq(commendations.sessionId, sessionId)).orderBy(desc(commendations.createdAt));
+}
+
 // ── Character Session History ──────────────────────────────────────────────
 
 export async function getCharacterSessionHistory(userId: number) {
@@ -534,4 +559,13 @@ export async function getCharacterSessionHistory(userId: number) {
     }
   }
   return participated;
+}
+
+export async function getCharacterSessionHistoryByCharId(characterId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Look up the character to get the userId
+  const [char] = await db.select().from(characters).where(eq(characters.id, characterId)).limit(1);
+  if (!char) return [];
+  return getCharacterSessionHistory(char.userId);
 }

@@ -177,3 +177,16 @@
 - [x] Frontend: Session Log — hide from nav and page for non-admin users
 - [x] Frontend: Incident Board — show only active/posted incidents (not the full library)
 - [x] Frontend: Shift Scheduler — add "Generate Briefing" button that calls AI and fills label + message fields
+
+## Feature: Manual Commendations + Session History in GM Panel
+- [x] DB: commendations table (id, sessionId, characterId, characterName, awardedByUserId, reason, createdAt)
+- [x] Backend: commendations.create (adminProcedure) — Shift Supervisor awards commendation to a player
+- [x] Backend: commendations.listByCharacter (protectedProcedure) — fetch commendations for current user's character
+- [x] Backend: commendations.listBySession (adminProcedure) — fetch all commendations for a session
+- [x] Backend: character.getSessionHistoryByCharId (adminProcedure) — admin views any operator's shift history
+- [x] Frontend: GM Panel AI Sessions tab — add "Award Commendation" button per ended session
+- [x] Frontend: Commendation dialog — select player, enter reason, submit
+- [x] Frontend: Operator File dossier — commendations section shows real DB commendations
+- [x] Frontend: Remove session history section from Operator File (player-facing)
+- [x] Frontend: GM Panel Operator Files tab — expandable cards with skill manifest + shift history
+- [ ] Frontend: GM Panel — add session history view (all sessions with player lists, debrief summaries, commendations awarded)

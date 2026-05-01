@@ -159,3 +159,18 @@ export const shiftSchedules = mysqlTable("shift_schedules", {
 
 export type ShiftSchedule = typeof shiftSchedules.$inferSelect;
 export type InsertShiftSchedule = typeof shiftSchedules.$inferInsert;
+
+// Commendations: manual awards given by Shift Supervisors at session end
+export const commendations = mysqlTable("commendations", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  characterId: int("characterId").notNull(),
+  characterName: varchar("characterName", { length: 128 }).notNull(),
+  awardedByUserId: int("awardedByUserId").notNull(),
+  awardedByName: varchar("awardedByName", { length: 128 }).notNull(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Commendation = typeof commendations.$inferSelect;
+export type InsertCommendation = typeof commendations.$inferInsert;

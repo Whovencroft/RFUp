@@ -40,6 +40,10 @@ import {
   updateShiftSchedule,
   deleteShiftSchedule,
   getCharacterSessionHistory,
+  getCharacterSessionHistoryByCharId,
+  createCommendation,
+  getCommendationsByCharacterId,
+  getCommendationsBySessionId,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { generateImage } from "./_core/imageGeneration";
@@ -116,6 +120,13 @@ export const appRouter = router({
     getSessionHistory: protectedProcedure.query(async ({ ctx }) => {
       return getCharacterSessionHistory(ctx.user.id);
     }),
+
+    // Admin: view session history for any character
+    getSessionHistoryByCharId: adminProcedure
+      .input(z.object({ characterId: z.number().int() }))
+      .query(async ({ input }) => {
+        return getCharacterSessionHistoryByCharId(input.characterId);
+      }),
 
     listAll: protectedProcedure.query(async () => {
       return getAllCharactersWithSkills();
@@ -856,6 +867,43 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
       }
       return parsed;
     }),
+  }),
+
+  // ── Commendations ─────────────────────────────────────────────────────────
+  commendations: router({
+    // Admin awards a commendation to a player for a specific session
+    create: adminProcedure
+      .input(z.object({
+        sessionId: z.number().int(),
+        characterId: z.number().int(),
+        characterName: z.string().min(1).max(128),
+        reason: z.string().min(1).max(1000),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const commendation = await createCommendation({
+          sessionId: input.sessionId,
+          characterId: input.characterId,
+          characterName: input.characterName,
+          awardedByUserId: ctx.user.id,
+          awardedByName: ctx.user.name ?? "Shift Supervisor",
+          reason: input.reason,
+        });
+        return commendation;
+      }),
+
+    // Player fetches their own commendations for the dossier
+    listMine: protectedProcedure.query(async ({ ctx }) => {
+      const char = await getCharacterByUserId(ctx.user.id);
+      if (!char) return [];
+      return getCommendationsByCharacterId(char.id);
+    }),
+
+    // Admin fetches all commendations for a specific session
+    listBySession: adminProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .query(async ({ input }) => {
+        return getCommendationsBySessionId(input.sessionId);
+      }),
   }),
 });
 

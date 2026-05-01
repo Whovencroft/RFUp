@@ -31,6 +31,7 @@ import {
   ScrollText,
   Bot,
   ChevronRight,
+  Award,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,7 +43,105 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, RefreshCw } from "lucide-react";
+import { Calendar, Clock, RefreshCw, History, ChevronDown } from "lucide-react";
+import { useState as useLocalState } from "react";
+
+// ── Operator File Card (expandable, shows session history) ────────────────
+function OperatorFileCard({ char }: {
+  char: { id: number; name: string; jobTitle: string; xp: number; skills?: { id: number; name: string; level: number }[] | null };
+}) {
+  const [expanded, setExpanded] = useLocalState(false);
+  const { data: history, isLoading: historyLoading } = trpc.character.getSessionHistoryByCharId.useQuery(
+    { characterId: char.id },
+    { enabled: expanded }
+  );
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      {/* Header row */}
+      <button
+        className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/20 transition-colors"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">{char.name}</p>
+            <p className="text-xs text-muted-foreground">{char.jobTitle}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20">
+            <Zap className="w-3 h-3 text-amber-400" />
+            <span className="text-xs font-mono text-amber-400">{char.xp} XP</span>
+          </div>
+          <span className="text-xs text-muted-foreground font-mono">
+            {(char.skills ?? []).length} skill{(char.skills ?? []).length !== 1 ? "s" : ""}
+          </span>
+          <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+        </div>
+      </button>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div className="border-t border-border p-4 space-y-4 bg-muted/10">
+          {/* Skills */}
+          <div>
+            <p className="text-[10px] font-mono text-muted-foreground tracking-widest mb-2">SKILL MANIFEST</p>
+            <div className="space-y-1.5">
+              {(char.skills ?? []).map((skill) => (
+                <div key={skill.id} className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{skill.name}</span>
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: skill.level }).map((_, i) => (
+                      <Star key={i} className="w-2.5 h-2.5 text-primary fill-primary" />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Session History */}
+          <div>
+            <p className="text-[10px] font-mono text-muted-foreground tracking-widest mb-2 flex items-center gap-1">
+              <History className="w-3 h-3" /> SHIFT HISTORY
+            </p>
+            {historyLoading ? (
+              <div className="flex items-center gap-2 py-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                <span className="text-xs text-muted-foreground">Loading...</span>
+              </div>
+            ) : !history || history.length === 0 ? (
+              <p className="text-xs text-muted-foreground/60 italic">No shifts on record.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {history.map((s) => (
+                  <Link key={s.id} href={`/sessions/${s.id}`}>
+                    <div className="flex items-center justify-between p-2 rounded border border-border bg-background hover:border-primary/30 transition-colors cursor-pointer group">
+                      <div className="min-w-0">
+                        <p className="text-xs text-foreground group-hover:text-primary transition-colors truncate">{s.title}</p>
+                        <p className="text-[10px] font-mono text-muted-foreground">
+                          {new Date(s.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+                        </p>
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-mono border rounded px-1.5 py-0.5 shrink-0 ml-2",
+                        s.status === "active"
+                          ? "text-primary border-primary/30 bg-primary/10"
+                          : "text-muted-foreground border-border bg-muted"
+                      )}>
+                        {s.status === "active" ? "ACTIVE" : "ENDED"}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function GmPanel() {
   const { user, isAuthenticated } = useAuth();
@@ -169,6 +268,33 @@ export default function GmPanel() {
     onSuccess: () => { toast.success("Session ended."); refetchAiSessions(); },
     onError: (e) => toast.error(e.message),
   });
+
+  // ── Commendation state ────────────────────────────────────────────────────
+  const [commendDialog, setCommendDialog] = useState<{ sessionId: number; sessionTitle: string } | null>(null);
+  const [commendCharId, setCommendCharId] = useState<string>("");
+  const [commendReason, setCommendReason] = useState("");
+
+  const awardCommendation = trpc.commendations.create.useMutation({
+    onSuccess: () => {
+      toast.success("Commendation awarded.");
+      setCommendDialog(null);
+      setCommendCharId("");
+      setCommendReason("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // Derive character list for commendation dialog — scoped to session participants
+  const commendCharOptions = (() => {
+    if (!commendDialog || !aiSessions || !sheets) return sheets ?? [];
+    const session = aiSessions.find((s) => s.id === commendDialog.sessionId);
+    if (!session) return sheets ?? [];
+    let playerUserIds: number[] = [];
+    try { playerUserIds = JSON.parse((session as any).playerOrder || "[]"); } catch {}
+    if (playerUserIds.length === 0) return sheets ?? [];
+    // allSheets spreads all character columns including userId
+    return (sheets as any[]).filter((c) => playerUserIds.includes(c.userId));
+  })();
 
   function togglePlayer(uid: number) {
     setAiSelectedPlayerIds((prev) =>
@@ -457,32 +583,9 @@ export default function GmPanel() {
               <p className="text-xs text-muted-foreground">No operators have clocked in yet.</p>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
               {sheets.map((char) => (
-                <div key={char.id} className="p-4 rounded-lg border border-border bg-card">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{char.name}</p>
-                      <p className="text-xs text-muted-foreground">{char.jobTitle}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20">
-                      <Zap className="w-3 h-3 text-amber-400" />
-                      <span className="text-xs font-mono text-amber-400">{char.xp} XP</span>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {(char.skills ?? []).map((skill) => (
-                      <div key={skill.id} className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">{skill.name}</span>
-                        <div className="flex items-center gap-0.5">
-                          {Array.from({ length: skill.level }).map((_, i) => (
-                            <Star key={i} className="w-2.5 h-2.5 text-primary fill-primary" />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <OperatorFileCard key={char.id} char={char} />
               ))}
             </div>
           )}
@@ -775,6 +878,16 @@ export default function GmPanel() {
                           View <ChevronRight className="w-3 h-3" />
                         </Button>
                       </Link>
+                      {s.status === "ended" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-amber-400/70 hover:text-amber-400 gap-1"
+                          onClick={() => setCommendDialog({ sessionId: s.id, sessionTitle: s.title })}
+                        >
+                          <Award className="w-3 h-3" /> Commend
+                        </Button>
+                      )}
                       {s.status === "active" && (
                         <Button
                           variant="ghost"
@@ -794,6 +907,68 @@ export default function GmPanel() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Award Commendation Dialog */}
+      <Dialog open={!!commendDialog} onOpenChange={(open) => { if (!open) { setCommendDialog(null); setCommendCharId(""); setCommendReason(""); } }}>
+        <DialogContent className="bg-card border-border text-foreground max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Award Commendation</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Award a formal commendation to an operator for their performance in{" "}
+            <span className="text-foreground font-medium">{commendDialog?.sessionTitle}</span>.
+            It will appear on their Operator File dossier.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">OPERATOR</Label>
+              <Select value={commendCharId} onValueChange={setCommendCharId}>
+                <SelectTrigger className="bg-input border-border text-foreground">
+                  <SelectValue placeholder="Select an operator..." />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border text-foreground">
+                  {commendCharOptions.map((char) => (
+                    <SelectItem key={char.id} value={String(char.id)}>
+                      {char.name} — {char.jobTitle}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">REASON</Label>
+              <Textarea
+                value={commendReason}
+                onChange={(e) => setCommendReason(e.target.value)}
+                placeholder="Describe the action or decision that earned this commendation..."
+                className="bg-input border-border text-foreground resize-none"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setCommendDialog(null); setCommendCharId(""); setCommendReason(""); }}>Cancel</Button>
+            <Button
+              className="bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 gap-2"
+              disabled={!commendCharId || !commendReason.trim() || awardCommendation.isPending}
+              onClick={() => {
+                if (!commendDialog || !commendCharId) return;
+                const char = commendCharOptions.find((c) => c.id === parseInt(commendCharId));
+                if (!char) return;
+                awardCommendation.mutate({
+                  sessionId: commendDialog.sessionId,
+                  characterId: char.id,
+                  characterName: char.name,
+                  reason: commendReason.trim(),
+                });
+              }}
+            >
+              {awardCommendation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
+              Award Commendation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Incident Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

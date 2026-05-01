@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X,
-  Printer, GitBranch, Radio, Sparkles, User, BookOpen, History, Award,
+  Printer, GitBranch, Radio, Sparkles, Award,
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -182,7 +182,8 @@ export default function Play() {
     refetchInterval: 10000,
   });
 
-  const { data: sessionHistory, isLoading: historyLoading } = trpc.character.getSessionHistory.useQuery(undefined, {
+  // Real commendations from DB
+  const { data: commendations, isLoading: commendationsLoading } = trpc.commendations.listMine.useQuery(undefined, {
     enabled: isAuthenticated,
   });
 
@@ -247,26 +248,6 @@ export default function Play() {
         <CharacterCreation onCreated={() => utils.character.get.invalidate()} />
       </div>
     );
-  }
-
-  // Extract commendations from ended sessions' debrief content
-  const commendations: { sessionTitle: string; excerpt: string }[] = [];
-  if (sessionHistory) {
-    for (const session of sessionHistory) {
-      if (session.status === "ended" && session.debriefContent) {
-        // Look for commendation mentions in the debrief
-        const lines = session.debriefContent.split("\n").filter(Boolean);
-        const commLine = lines.find((l) =>
-          /commend|award|mvp|most creative|outstanding|citation/i.test(l)
-        );
-        if (commLine) {
-          commendations.push({
-            sessionTitle: session.title,
-            excerpt: commLine.trim().slice(0, 200),
-          });
-        }
-      }
-    }
   }
 
   return (
@@ -338,9 +319,12 @@ export default function Play() {
                   <span className="text-xs text-muted-foreground font-mono">
                     {character.skills?.length ?? 0} skill{(character.skills?.length ?? 0) !== 1 ? "s" : ""}
                   </span>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {(sessionHistory?.length ?? 0)} shift{(sessionHistory?.length ?? 0) !== 1 ? "s" : ""}
-                  </span>
+                  {(commendations?.length ?? 0) > 0 && (
+                    <span className="text-xs text-amber-400/80 font-mono flex items-center gap-1">
+                      <Award className="w-3 h-3" />
+                      {commendations!.length} commendation{commendations!.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
               </>
             )}
@@ -350,10 +334,7 @@ export default function Play() {
           {!editingChar && (
             <div className="p-5 rounded-xl border border-border bg-card">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-mono text-primary tracking-widest flex items-center gap-1.5">
-                  <BookOpen className="w-3 h-3" />
-                  PERSONNEL BIO
-                </p>
+                <p className="text-xs font-mono text-primary tracking-widest">PERSONNEL BIO</p>
                 <button onClick={() => setEditingChar(true)} className="text-muted-foreground hover:text-foreground transition-colors">
                   <Pencil className="w-3 h-3" />
                 </button>
@@ -410,89 +391,75 @@ export default function Play() {
           </div>
         </div>
 
-        {/* ── Right: Session History + Commendations ── */}
+        {/* ── Right: Commendations ── */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Session History */}
-          <div className="p-5 rounded-xl border border-border bg-card">
-            <p className="text-xs font-mono text-primary tracking-widest mb-4 flex items-center gap-1.5">
-              <History className="w-3 h-3" />
-              SHIFT HISTORY
-            </p>
-            {historyLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              </div>
-            ) : !sessionHistory || sessionHistory.length === 0 ? (
-              <div className="text-center py-8">
-                <User className="w-7 h-7 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No shifts on record yet.</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">
-                  Join an AI session from the{" "}
-                  <Link href="/lobby" className="text-primary hover:underline">Lobby</Link> to start your first shift.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sessionHistory.map((session) => (
-                  <Link key={session.id} href={`/sessions/${session.id}`}>
-                    <div className="flex items-start justify-between p-4 rounded-lg border border-border bg-background hover:border-primary/30 transition-colors cursor-pointer group">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
-                            {session.title}
-                          </p>
-                          <span
-                            className={cn(
-                              "text-[10px] font-mono border rounded px-1.5 py-0.5 shrink-0",
-                              session.status === "active"
-                                ? "text-primary border-primary/30 bg-primary/10 animate-pulse"
-                                : "text-muted-foreground border-border bg-muted"
-                            )}
-                          >
-                            {session.status === "active" ? "ACTIVE" : "ENDED"}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {new Date(session.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
-                        </p>
-                        {session.status === "ended" && session.debriefContent && (
-                          <p className="text-xs text-muted-foreground/70 mt-1.5 line-clamp-2 leading-relaxed">
-                            {session.debriefContent.split("\n").find(Boolean)?.slice(0, 160)}…
-                          </p>
-                        )}
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5 ml-3" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Commendations */}
           <div className="p-5 rounded-xl border border-border bg-card">
             <p className="text-xs font-mono text-primary tracking-widest mb-4 flex items-center gap-1.5">
               <Award className="w-3 h-3" />
               COMMENDATIONS
             </p>
-            {commendations.length === 0 ? (
-              <div className="text-center py-6">
+            {commendationsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              </div>
+            ) : !commendations || commendations.length === 0 ? (
+              <div className="text-center py-8">
                 <Award className="w-7 h-7 text-muted-foreground/30 mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No commendations on file.</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
-                  Commendations are awarded by the AI Shift Supervisor at the end of a shift.
+                  Commendations are awarded by the Shift Supervisor at the end of a shift.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {commendations.map((c, i) => (
-                  <div key={i} className="p-4 rounded-lg border border-amber-500/20 bg-amber-500/5">
-                    <p className="text-xs font-mono text-amber-400 mb-1 tracking-widest">{c.sessionTitle}</p>
-                    <p className="text-sm text-foreground leading-relaxed">{c.excerpt}</p>
+                {commendations.map((c) => (
+                  <div key={c.id} className="p-4 rounded-lg border border-amber-500/20 bg-amber-500/5">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-xs font-mono text-amber-400 tracking-widest">COMMENDATION</p>
+                      <p className="text-[10px] font-mono text-muted-foreground shrink-0">
+                        {new Date(c.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    </div>
+                    <p className="text-sm text-foreground leading-relaxed">{c.reason}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1.5 font-mono">
+                      Awarded by {c.awardedByName}
+                    </p>
                   </div>
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Quick links */}
+          <div className="p-5 rounded-xl border border-border bg-card">
+            <p className="text-xs font-mono text-primary tracking-widest mb-3">QUICK ACCESS</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/lobby">
+                <div className="p-3 rounded-lg border border-border bg-background hover:border-primary/30 transition-colors cursor-pointer group">
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">Enter the Facility</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Join an active session</p>
+                </div>
+              </Link>
+              <Link href="/sessions">
+                <div className="p-3 rounded-lg border border-border bg-background hover:border-primary/30 transition-colors cursor-pointer group">
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">AI Sessions</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">View all sessions</p>
+                </div>
+              </Link>
+              <Link href="/incidents">
+                <div className="p-3 rounded-lg border border-border bg-background hover:border-primary/30 transition-colors cursor-pointer group">
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">Incident Board</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Active security incidents</p>
+                </div>
+              </Link>
+              <Link href="/print" target="_blank">
+                <div className="p-3 rounded-lg border border-border bg-background hover:border-primary/30 transition-colors cursor-pointer group">
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">Print Sheet</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Printer-friendly character sheet</p>
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
