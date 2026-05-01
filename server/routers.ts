@@ -776,6 +776,8 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
         dcSet: z.number().int().min(2).max(20).optional(),
         skillRuling: z.enum(["approved", "denied", "partial"]).optional(),
         advanceTurn: z.boolean().default(true),
+        awardXp: z.boolean().default(false),
+        awardXpToUserId: z.number().int().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const session = await getAiSession(input.sessionId);
@@ -783,6 +785,19 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
         if (session.status === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "Session has ended." });
         if ((session as any).gmMode !== "supervisor") {
           throw new TRPCError({ code: "BAD_REQUEST", message: "This is an AI-led session. Use the AI flow." });
+        }
+
+        // Award XP to the specified player (or current turn player) if requested
+        let xpAwarded = false;
+        if (input.awardXp) {
+          const targetUserId = input.awardXpToUserId ?? session.currentTurnUserId;
+          if (targetUserId) {
+            const targetChar = await getCharacterByUserId(targetUserId);
+            if (targetChar) {
+              await updateCharacter(targetChar.id, { xp: targetChar.xp + 1 });
+              xpAwarded = true;
+            }
+          }
         }
 
         await addAiMessage({
@@ -802,10 +817,10 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           const currentIdx = currentTurn ? playerOrder.indexOf(currentTurn) : 0;
           const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
           await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId });
-          return { success: true, nextTurnUserId: nextUserId };
+          return { success: true, nextTurnUserId: nextUserId, xpAwarded };
         }
 
-        return { success: true, nextTurnUserId: session.currentTurnUserId };
+        return { success: true, nextTurnUserId: session.currentTurnUserId, xpAwarded };
       }),
 
     // Supervisor injects a new incident mid-session

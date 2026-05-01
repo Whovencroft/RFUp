@@ -211,3 +211,9 @@
 - [x] Return xpAwarded flag from submitAction so frontend can show toast
 - [x] Frontend: show '+1 XP awarded for a failed roll' toast and refetch character panel
 - [x] Tests: 2 new tests covering XP award on failure and no-award on success (19 total, all passing)
+
+## Feature: XP Improvements
+- [x] Backend: supervisorRespond accepts awardXp boolean — if true, increment current player's XP by 1
+- [x] Frontend: AiSession left panel — XP total already shown in amber badge in operator header; refreshes after each action
+- [x] Frontend: AiSession supervisor panel — "Award 1 XP to current operator" checkbox in Narrative Response section (amber, default unchecked)
+- [x] Frontend: AiSession dice roll UI — XP count shown in top-right of action input area; amber when > 0, muted when 0; tooltip explains XP spend mechanic

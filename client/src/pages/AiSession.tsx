@@ -265,6 +265,7 @@ export default function AiSession() {
   const [supervisorDcSet, setSupervisorDcSet] = useState<string>("");
   const [supervisorSkillRuling, setSupervisorSkillRuling] = useState<"approved" | "denied" | "partial" | "">("approved");
   const [supervisorAdvanceTurn, setSupervisorAdvanceTurn] = useState(true);
+  const [supervisorAwardXp, setSupervisorAwardXp] = useState(false);
 
   // Supervisor incident injection state
   const [showInjectIncident, setShowInjectIncident] = useState(false);
@@ -286,14 +287,20 @@ export default function AiSession() {
   });
 
   const supervisorRespondMutation = trpc.aiGm.supervisorRespond.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       setSupervisorResponseText("");
       setSupervisorDcSet("");
       setSupervisorSkillRuling("approved");
       setSupervisorAdvanceTurn(true);
+      setSupervisorAwardXp(false);
       refetchMessages();
       refetchSession();
-      toast.success("Response posted.");
+      refetchChar();
+      if (data?.xpAwarded) {
+        toast.success("+1 XP awarded to the current operator.");
+      } else {
+        toast.success("Response posted.");
+      }
     },
     onError: (e) => toast.error(e.message),
   });
@@ -318,7 +325,10 @@ export default function AiSession() {
     { enabled: !!sessionId, refetchInterval: 5000 }
   );
 
-  const { data: myChar, refetch: refetchChar } = trpc.character.get.useQuery();
+  const { data: myChar, refetch: refetchChar } = trpc.character.get.useQuery(
+    undefined,
+    { refetchInterval: 5000 } // poll so XP updates live when supervisor awards it
+  );
 
   const playerOrder: number[] = JSON.parse(session?.playerOrder || "[]");
   const { data: allChars } = trpc.character.listAll.useQuery(
@@ -691,6 +701,18 @@ export default function AiSession() {
                     Advance turn after posting
                   </label>
                 </div>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="awardXp"
+                    checked={supervisorAwardXp}
+                    onChange={(e) => setSupervisorAwardXp(e.target.checked)}
+                    className="rounded border-border"
+                  />
+                  <label htmlFor="awardXp" className="text-[10px] font-mono text-amber-400 cursor-pointer flex items-center gap-1">
+                    <Zap className="w-2.5 h-2.5" /> Award 1 XP to current operator
+                  </label>
+                </div>
                 <Button
                   size="sm"
                   className="mt-2 h-7 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90 w-full gap-1.5"
@@ -701,6 +723,7 @@ export default function AiSession() {
                     dcSet: supervisorDcSet ? parseInt(supervisorDcSet) : undefined,
                     skillRuling: supervisorSkillRuling || undefined,
                     advanceTurn: supervisorAdvanceTurn,
+                    awardXp: supervisorAwardXp,
                   })}
                 >
                   {supervisorRespondMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
@@ -963,6 +986,22 @@ export default function AiSession() {
               </div>
             ) : (
               <div className="px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="text-xs text-muted-foreground font-mono">Your action</p>
+                  {myChar && (
+                    <span
+                      className={`inline-flex items-center gap-1 text-xs font-mono rounded px-2 py-0.5 border ${
+                        (myChar.xp ?? 0) > 0
+                          ? "text-amber-400 bg-amber-400/10 border-amber-400/20"
+                          : "text-muted-foreground bg-muted border-border"
+                      }`}
+                      title="Spend XP to convert a die to 6 during advancement rolls"
+                    >
+                      <Zap className="w-3 h-3" />
+                      {myChar.xp ?? 0} XP{(myChar.xp ?? 0) > 0 ? " available" : ""}
+                    </span>
+                  )}
+                </div>
                 <Textarea
                   placeholder="Describe what you do. Be specific — the more creative, the better the skill you might earn. Then click a skill in your manifest to roll."
                   value={actionText}
@@ -974,7 +1013,7 @@ export default function AiSession() {
                 {(isSubmitting || isRolling) && (
                   <p className="text-xs text-muted-foreground font-mono flex items-center gap-1.5">
                     <Loader2 className="w-3 h-3 animate-spin" />
-                    {isRolling ? "Rolling dice…" : "Waiting for AI response…"}
+                    {isRolling ? "Rolling dice…" : isSupervisorMode ? "Waiting for Supervisor response…" : "Waiting for AI response…"}
                   </p>
                 )}
               </div>
