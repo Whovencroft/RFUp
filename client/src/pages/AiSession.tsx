@@ -251,6 +251,14 @@ export default function AiSession() {
   const [suggestedSkillLevel, setSuggestedSkillLevel] = useState(2);
   const [isSuggestingName, setIsSuggestingName] = useState(false);
 
+  // XP spend prompt state (shown after dice settle, before auto-submit)
+  const [xpSpendPrompt, setXpSpendPrompt] = useState<{
+    skill: { name: string; level: number };
+    results: number[];
+    xpAvailable: number;
+    nonSixCount: number;
+  } | null>(null);
+
   // GM panel state
   const [showGmPanel, setShowGmPanel] = useState(false);
   const [gmNotes, setGmNotes] = useState("");
@@ -390,7 +398,45 @@ export default function AiSession() {
     }
   }, [messages, isRolling]);
 
-  // Roll dice for selected skill — auto-submits after animation
+  // Finalise and submit after dice are settled (and optionally after XP spend)
+  const doSubmit = useCallback(
+    (skill: { name: string; level: number }, results: number[], spendXp: boolean) => {
+      setXpSpendPrompt(null);
+      setIsSubmitting(true);
+      const allSixes = results.every((d) => d === 6);
+      const xp = myChar?.xp ?? 0;
+      const nonSixCount = results.filter((d) => d < 6).length;
+      const canUpgradeWithXp = !allSixes && nonSixCount > 0 && xp >= nonSixCount;
+      const finalDice = spendXp ? results.map(() => 6) : results;
+
+      submitAction.mutate(
+        {
+          sessionId,
+          actionDescription: actionText.trim(),
+          skillName: skill.name,
+          skillLevel: skill.level,
+          diceResults: finalDice,
+          xpToSpend: spendXp ? nonSixCount : 0,
+        },
+        {
+          onSettled: () => {
+            if (allSixes || canUpgradeWithXp || spendXp) {
+              setIsSuggestingName(true);
+              setAdvancementOpen(true);
+              suggestName.mutate({
+                actionDescription: actionText.trim(),
+                usedSkillName: skill.name,
+                usedSkillLevel: skill.level,
+              });
+            }
+          },
+        }
+      );
+    },
+    [actionText, myChar?.xp, sessionId, submitAction, suggestName]
+  );
+
+  // Roll dice for selected skill — pauses for XP spend prompt if applicable, then submits
   const rollAndSubmit = useCallback(
     (skill: { name: string; level: number }) => {
       if (!actionText.trim()) {
@@ -404,43 +450,23 @@ export default function AiSession() {
       setPendingDice(results);
       setIsRolling(true);
 
-      // After animation settles (~900ms), auto-submit
+      // After animation settles (~900ms), check for XP spend opportunity
       setTimeout(() => {
         setIsRolling(false);
-        setIsSubmitting(true);
-
         const allSixes = results.every((d) => d === 6);
         const xp = myChar?.xp ?? 0;
-        // Count how many dice are below 6 — that's how many XP needed to convert to all 6s
         const nonSixCount = results.filter((d) => d < 6).length;
-        const canUpgradeWithXp = !allSixes && nonSixCount > 0 && xp >= nonSixCount;
+        const canSpendXp = !allSixes && nonSixCount > 0 && xp >= nonSixCount;
 
-        submitAction.mutate(
-          {
-            sessionId,
-            actionDescription: actionText.trim(),
-            skillName: skill.name,
-            skillLevel: skill.level,
-            diceResults: results,
-          },
-          {
-            onSettled: () => {
-              // After AI responds, check for advancement
-              if (allSixes || canUpgradeWithXp) {
-                setIsSuggestingName(true);
-                setAdvancementOpen(true);
-                suggestName.mutate({
-                  actionDescription: actionText.trim(),
-                  usedSkillName: skill.name,
-                  usedSkillLevel: skill.level,
-                });
-              }
-            },
-          }
-        );
+        if (canSpendXp) {
+          // Pause and show XP spend prompt — user decides before submitting
+          setXpSpendPrompt({ skill, results, xpAvailable: xp, nonSixCount });
+        } else {
+          doSubmit(skill, results, false);
+        }
       }, 950);
     },
-    [actionText, isSubmitting, isRolling, myChar?.xp, sessionId, submitAction, suggestName]
+    [actionText, isSubmitting, isRolling, myChar?.xp, doSubmit]
   );
 
   const isMyTurn = session?.currentTurnUserId === user?.id;
@@ -1033,6 +1059,45 @@ export default function AiSession() {
         }}
         onDismiss={() => setAdvancementOpen(false)}
       />
+
+      {/* ── XP Spend Prompt ── */}
+      {xpSpendPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card border border-amber-500/40 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-amber-400 text-xl">⚡</span>
+              <h3 className="font-bold text-lg text-amber-300">Spend XP?</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-2">
+              You rolled{" "}
+              <span className="font-mono font-bold text-foreground">
+                [{xpSpendPrompt.results.join(", ")}]
+              </span>{" "}
+              on your <span className="font-semibold">{xpSpendPrompt.skill.name}</span> roll.
+            </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              You have{" "}
+              <span className="font-bold text-amber-400">{xpSpendPrompt.xpAvailable} XP</span>. Spend{" "}
+              <span className="font-bold text-amber-400">{xpSpendPrompt.nonSixCount} XP</span> to convert all
+              dice to 6s and guarantee success?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => doSubmit(xpSpendPrompt.skill, xpSpendPrompt.results, true)}
+                className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-bold py-2 px-4 rounded-lg transition-colors"
+              >
+                Spend {xpSpendPrompt.nonSixCount} XP — All 6s
+              </button>
+              <button
+                onClick={() => doSubmit(xpSpendPrompt.skill, xpSpendPrompt.results, false)}
+                className="flex-1 bg-muted hover:bg-muted/80 text-foreground font-medium py-2 px-4 rounded-lg transition-colors"
+              >
+                Keep Roll
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

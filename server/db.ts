@@ -569,3 +569,32 @@ export async function getCharacterSessionHistoryByCharId(characterId: number) {
   if (!char) return [];
   return getCharacterSessionHistory(char.userId);
 }
+
+// ── Session XP Summary ────────────────────────────────────────────────────────
+
+export async function getSessionXpSummary(sessionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Count xpAwarded messages per player in the session
+  const msgs = await db
+    .select()
+    .from(aiMessages)
+    .where(
+      and(
+        eq(aiMessages.sessionId, sessionId),
+        eq(aiMessages.xpAwarded, true)
+      )
+    );
+  // Group by awardedUserId (the player who earned XP, not the message author)
+  const map = new Map<number, { authorId: number; authorName: string; xpEarned: number }>();
+  for (const m of msgs) {
+    if (!m.awardedUserId || !m.awardedCharacterName) continue;
+    const existing = map.get(m.awardedUserId);
+    if (existing) {
+      existing.xpEarned += 1;
+    } else {
+      map.set(m.awardedUserId, { authorId: m.awardedUserId, authorName: m.awardedCharacterName, xpEarned: 1 });
+    }
+  }
+  return Array.from(map.values());
+}

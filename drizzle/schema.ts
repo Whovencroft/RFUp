@@ -123,6 +123,9 @@ export const aiMessages = mysqlTable("ai_messages", {
   dcSet: int("dcSet"),
   skillRuling: mysqlEnum("skillRuling", ["approved", "denied", "partial"]),
   isIncidentChain: boolean("isIncidentChain").default(false).notNull(),
+  xpAwarded: boolean("xpAwarded").default(false).notNull(),
+  awardedUserId: int("awardedUserId"),           // userId of the player who earned XP (for summary)
+  awardedCharacterName: varchar("awardedCharacterName", { length: 128 }), // their character name
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

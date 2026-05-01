@@ -217,3 +217,12 @@
 - [x] Frontend: AiSession left panel — XP total already shown in amber badge in operator header; refreshes after each action
 - [x] Frontend: AiSession supervisor panel — "Award 1 XP to current operator" checkbox in Narrative Response section (amber, default unchecked)
 - [x] Frontend: AiSession dice roll UI — XP count shown in top-right of action input area; amber when > 0, muted when 0; tooltip explains XP spend mechanic
+
+## Feature: XP Spend Prompt, Commendation Notification, Debrief XP Summary
+- [x] Frontend: AiSession — XP spend prompt before auto-submit (if player has XP and rolled non-6s, pause and show "You have N XP — spend to convert dice to 6s?" with Yes/No)
+- [x] Backend: commendations.create — after inserting commendation, call notifyOwner to alert the awarded operator
+- [x] DB: aiMessages.xpAwarded boolean column added (migration applied)
+- [x] Backend: xp.sessionSummary — return each player's XP earned during a session (counts xpAwarded messages per player)
+- [x] Backend: aiGm.submitAction — passes xpAwarded flag to addAiMessage so it's tracked in DB
+- [x] Backend: aiGm.supervisorRespond — passes xpAwarded flag to addAiMessage
+- [x] Frontend: Debrief page — XP EARNED THIS SHIFT section shows per-operator XP earned

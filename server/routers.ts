@@ -44,8 +44,10 @@ import {
   createCommendation,
   getCommendationsByCharacterId,
   getCommendationsBySessionId,
+  getSessionXpSummary,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
+import { notifyOwner } from "./_core/notification";
 import { generateImage } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
 
@@ -289,6 +291,13 @@ export const appRouter = router({
           description: `${char.name} spent ${input.amount} XP.`,
         });
         return { newXp: char.xp - input.amount };
+      }),
+
+    // Returns XP earned per player in a session (from xpAwarded messages)
+    sessionSummary: publicProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .query(async ({ input }) => {
+        return getSessionXpSummary(input.sessionId);
       }),
   }),
 
@@ -539,6 +548,7 @@ Keep it under 200 words. Write in second person ("you"). Dry, grounded tone.`;
           skillName: z.string().min(1).max(256),
           skillLevel: z.number().int().min(1).max(10),
           diceResults: z.array(z.number().int().min(1).max(6)),
+          xpToSpend: z.number().int().min(0).default(0),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -558,6 +568,20 @@ Keep it under 200 words. Write in second person ("you"). Dry, grounded tone.`;
         if (!char) throw new TRPCError({ code: "NOT_FOUND", message: "No character found." });
         const charSkills = await getSkillsByCharacterId(char.id);
 
+        // Validate and deduct XP spend server-side
+        if (input.xpToSpend > 0) {
+          if (char.xp < input.xpToSpend) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Not enough XP to spend." });
+          }
+          await updateCharacter(char.id, { xp: char.xp - input.xpToSpend });
+          await addSessionLogEntry({
+            userId: ctx.user.id,
+            characterName: char.name,
+            eventType: "xp_spent",
+            description: `${char.name} spent ${input.xpToSpend} XP to boost a ${input.skillName} roll in session.`,
+          });
+        }
+
         const rollTotal = input.diceResults.reduce((a, b) => a + b, 0);
         const allSixes = input.diceResults.every((d) => d === 6);
 
@@ -567,6 +591,7 @@ Keep it under 200 words. Write in second person ("you"). Dry, grounded tone.`;
           total: rollTotal,
           skillName: input.skillName,
           skillLevel: input.skillLevel,
+          xpSpent: input.xpToSpend,
         });
 
         await addAiMessage({
@@ -700,6 +725,10 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           dcSet: dcSet ?? undefined,
           skillRuling,
           isIncidentChain: isChain,
+          xpAwarded,
+          // Track which player earned XP so the summary can group by awarded operator
+          awardedUserId: xpAwarded ? ctx.user.id : undefined,
+          awardedCharacterName: xpAwarded ? char.name : undefined,
         });
 
         // Update context summary periodically (every 5 messages)
@@ -789,6 +818,8 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
 
         // Award XP to the specified player (or current turn player) if requested
         let xpAwarded = false;
+        let awardedUserId: number | undefined;
+        let awardedCharacterName: string | undefined;
         if (input.awardXp) {
           const targetUserId = input.awardXpToUserId ?? session.currentTurnUserId;
           if (targetUserId) {
@@ -796,6 +827,8 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
             if (targetChar) {
               await updateCharacter(targetChar.id, { xp: targetChar.xp + 1 });
               xpAwarded = true;
+              awardedUserId = targetUserId;
+              awardedCharacterName = targetChar.name;
             }
           }
         }
@@ -809,6 +842,9 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           dcSet: input.dcSet,
           skillRuling: input.skillRuling,
           isIncidentChain: false,
+          xpAwarded,
+          awardedUserId,
+          awardedCharacterName,
         });
 
         if (input.advanceTurn) {
@@ -1026,6 +1062,11 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           awardedByName: ctx.user.name ?? "Shift Supervisor",
           reason: input.reason,
         });
+        // Notify the owner so the awarded operator sees the commendation
+        await notifyOwner({
+          title: `Commendation awarded to ${input.characterName}`,
+          content: `${ctx.user.name ?? "Shift Supervisor"} awarded a commendation to ${input.characterName}: "${input.reason}"`,
+        }).catch(() => {/* non-critical */});
         return commendation;
       }),
 
@@ -1043,6 +1084,7 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
         return getCommendationsBySessionId(input.sessionId);
       }),
   }),
+
 });
 
 export type AppRouter = typeof appRouter;

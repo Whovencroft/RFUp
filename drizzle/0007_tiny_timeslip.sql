@@ -1,0 +1,1 @@
+ALTER TABLE `ai_messages` ADD `xpAwarded` boolean DEFAULT false NOT NULL;

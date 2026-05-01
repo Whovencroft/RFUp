@@ -31,6 +31,11 @@ export default function Debrief() {
     { enabled: !!sessionId }
   );
 
+  const { data: xpSummary } = trpc.xp.sessionSummary.useQuery(
+    { sessionId },
+    { enabled: !!sessionId }
+  );
+
   const endSession = trpc.aiGm.endSession.useMutation({
     onSuccess: () => {
       toast.success("Shift ended and debrief generated.");
@@ -171,6 +176,23 @@ export default function Debrief() {
             <p className="text-xs text-muted-foreground">
               The Shift Supervisor can end the shift from this page to generate the official post-incident debrief.
             </p>
+          </div>
+        )}
+
+        {/* XP Summary */}
+        {isEnded && xpSummary && xpSummary.length > 0 && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 space-y-4">
+            <p className="text-xs font-mono text-amber-400 tracking-widest">XP EARNED THIS SHIFT</p>
+            <div className="space-y-2">
+              {xpSummary.map((entry) => (
+                <div key={entry.authorId} className="flex items-center justify-between">
+                  <span className="text-sm font-mono text-foreground">{entry.authorName}</span>
+                  <span className="text-sm font-bold text-amber-400 font-mono">
+                    +{entry.xpEarned} XP
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
