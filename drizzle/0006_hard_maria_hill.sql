@@ -1,0 +1,1 @@
+ALTER TABLE `ai_sessions` ADD `gmMode` enum('ai','supervisor') DEFAULT 'ai' NOT NULL;

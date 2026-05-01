@@ -203,10 +203,11 @@ export default function GmPanel() {
   const [newDiff, setNewDiff] = useState(7);
   const [editingDiff, setEditingDiff] = useState<{ id: number; value: number } | null>(null);
 
-  // ── AI Session launcher state ─────────────────────────────────────────────
+  // ── AI Session launcher state ──────────────────────────────────────────────────────
   const [aiSessionTitle, setAiSessionTitle] = useState("");
   const [aiSelectedIncidentId, setAiSelectedIncidentId] = useState<string>("random");
   const [aiSelectedPlayerIds, setAiSelectedPlayerIds] = useState<number[]>([]);
+  const [aiGmMode, setAiGmMode] = useState<"ai" | "supervisor">("ai");
 
   // Shift scheduler state
   const [schedLabel, setSchedLabel] = useState("");
@@ -255,10 +256,11 @@ export default function GmPanel() {
 
   const createAiSession = trpc.aiGm.createSession.useMutation({
     onSuccess: (data) => {
-      toast.success("AI session started!");
+      toast.success(aiGmMode === "supervisor" ? "Supervisor-led session started!" : "AI session started!");
       setAiSessionTitle("");
       setAiSelectedIncidentId("random");
       setAiSelectedPlayerIds([]);
+      setAiGmMode("ai");
       refetchAiSessions();
     },
     onError: (e) => toast.error(e.message),
@@ -825,6 +827,44 @@ export default function GmPanel() {
                   )}
                 </div>
               </div>
+              {/* GM Mode toggle */}
+              <div>
+                <label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">SESSION MODE</label>
+                <div className="flex rounded-lg border border-border overflow-hidden">
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-mono transition-colors",
+                      aiGmMode === "ai"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => setAiGmMode("ai")}
+                  >
+                    <Bot className="w-3.5 h-3.5" />
+                    AI-LED
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-mono transition-colors border-l border-border",
+                      aiGmMode === "supervisor"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => setAiGmMode("supervisor")}
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    SUPERVISOR-LED
+                  </button>
+                </div>
+                {aiGmMode === "supervisor" && (
+                  <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
+                    You write the narrative responses. Players submit actions and rolls as normal.
+                  </p>
+                )}
+              </div>
+
               <Button
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
                 disabled={
@@ -838,15 +878,22 @@ export default function GmPanel() {
                     incitingIncidentId:
                       aiSelectedIncidentId !== "random" ? parseInt(aiSelectedIncidentId) : undefined,
                     playerUserIds: aiSelectedPlayerIds,
+                    gmMode: aiGmMode,
                   })
                 }
               >
                 {createAiSession.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
+                ) : aiGmMode === "supervisor" ? (
+                  <Shield className="w-4 h-4" />
                 ) : (
                   <Bot className="w-4 h-4" />
                 )}
-                {createAiSession.isPending ? "Starting shift…" : "Start AI Session"}
+                {createAiSession.isPending
+                  ? "Starting shift…"
+                  : aiGmMode === "supervisor"
+                  ? "Start Supervisor Session"
+                  : "Start AI Session"}
               </Button>
             </div>
 

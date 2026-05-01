@@ -412,13 +412,14 @@ export const appRouter = router({
         return getAiMessages(input.sessionId);
       }),
 
-    // GM creates a new AI-run session
+    // GM creates a new session (AI-led or Supervisor-led)
     createSession: adminProcedure
       .input(
         z.object({
           title: z.string().min(1).max(256),
           incitingIncidentId: z.number().int().optional(),
           playerUserIds: z.array(z.number().int()).min(1),
+          gmMode: z.enum(["ai", "supervisor"]).default("ai"),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -452,6 +453,7 @@ export const appRouter = router({
           incitingIncidentId: incident.id,
           playerOrder: JSON.stringify(validPlayers.map((p) => p.userId)),
           currentTurnUserId: validPlayers[0]!.userId,
+          gmMode: input.gmMode,
           createdBy: ctx.user.id,
         });
 
@@ -460,7 +462,29 @@ export const appRouter = router({
           .map((p) => `- ${p.name} (${p.jobTitle}), skills: ${p.skills.map((s) => `${s.name} ${s.level}`).join(", ")}`)
           .join("\n");
 
-        const openingPrompt = `You are the AI Shift Supervisor running a play-by-post tabletop RPG called "Roll for Uptime" set in Facility 404, a data center where mundane security work occasionally intersects with the inexplicable.
+        let openingText: string;
+
+        if (input.gmMode === "supervisor") {
+          // Supervisor-led: post a system message with incident details for the Supervisor to use
+          openingText = `[SHIFT BRIEFING — FOR SUPERVISOR EYES]
+
+Incident: ${incident.title}
+${incident.description}
+Base difficulty: ${incident.difficulty}
+
+Players this shift:
+${playerRoster}
+
+First up: ${validPlayers[0]!.name}. Write your opening narration below.`;
+          await addAiMessage({
+            sessionId: session.id,
+            authorType: "gm",
+            authorName: "System",
+            content: openingText,
+            isIncidentChain: false,
+          });
+        } else {
+          const openingPrompt = `You are the AI Shift Supervisor running a play-by-post tabletop RPG called "Roll for Uptime" set in Facility 404, a data center where mundane security work occasionally intersects with the inexplicable.
 
 SYSTEM RULES (follow these exactly):
 - Players roll D6s equal to their skill level. Sum must beat the DC you set to succeed.
@@ -489,19 +513,19 @@ Your opening message should:
 
 Keep it under 200 words. Write in second person ("you"). Dry, grounded tone.`;
 
-        const llmResponse = await invokeLLM({
-          messages: [{ role: "user", content: openingPrompt }],
-        });
+          const llmResponse = await invokeLLM({
+            messages: [{ role: "user", content: openingPrompt }],
+          });
+          openingText = String(llmResponse.choices[0]?.message?.content ?? "The shift begins.");
 
-        const openingText = String(llmResponse.choices[0]?.message?.content ?? "The shift begins.");
-
-        await addAiMessage({
-          sessionId: session.id,
-          authorType: "ai",
-          authorName: "AI Shift Supervisor",
-          content: openingText,
-          isIncidentChain: false,
-        });
+          await addAiMessage({
+            sessionId: session.id,
+            authorType: "ai",
+            authorName: "AI Shift Supervisor",
+            content: openingText,
+            isIncidentChain: false,
+          });
+        }
 
         return { session, openingText };
       }),
@@ -554,9 +578,25 @@ Keep it under 200 words. Write in second person ("you"). Dry, grounded tone.`;
           rollData,
         });
 
+        // Advance turn order
+        const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
+        const currentIdx = playerOrder.indexOf(ctx.user.id);
+        const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
+        await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId });
+
+        // In supervisor-led mode, the Supervisor writes the response manually — no AI call
+        if ((session as any).gmMode === "supervisor") {
+          return {
+            aiResponse: null,
+            dcSet: null,
+            skillRuling: null,
+            allSixes,
+            nextTurnUserId: nextUserId,
+          };
+        }
+
         // Fetch full message history for context
         const history = await getAiMessages(input.sessionId, 40);
-        const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
 
         // Fetch all player characters for context
         const allPlayerChars = await Promise.all(
@@ -646,11 +686,6 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           isIncidentChain: isChain,
         });
 
-        // Advance turn order
-        const currentIdx = playerOrder.indexOf(ctx.user.id);
-        const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
-        await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId });
-
         // Update context summary periodically (every 5 messages)
         if (history.length % 5 === 0) {
           const summaryPrompt = `Summarize the current state of this Roll for Uptime session in 3-4 sentences for context: what incident(s) are active, what has happened, what complications have arisen. Be factual and brief.`;
@@ -712,6 +747,77 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           authorName: "Shift Supervisor",
           content: input.content,
           isIncidentChain: false,
+        });
+        return { success: true };
+      }),
+
+    // Supervisor writes a narrative response in a supervisor-led session and advances the turn
+    supervisorRespond: adminProcedure
+      .input(z.object({
+        sessionId: z.number().int(),
+        content: z.string().min(1).max(3000),
+        dcSet: z.number().int().min(2).max(20).optional(),
+        skillRuling: z.enum(["approved", "denied", "partial"]).optional(),
+        advanceTurn: z.boolean().default(true),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getAiSession(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (session.status === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "Session has ended." });
+        if ((session as any).gmMode !== "supervisor") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This is an AI-led session. Use the AI flow." });
+        }
+
+        await addAiMessage({
+          sessionId: input.sessionId,
+          authorType: "gm",
+          authorId: ctx.user.id,
+          authorName: ctx.user.name ?? "Shift Supervisor",
+          content: input.content,
+          dcSet: input.dcSet,
+          skillRuling: input.skillRuling,
+          isIncidentChain: false,
+        });
+
+        if (input.advanceTurn) {
+          const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
+          const currentTurn = session.currentTurnUserId;
+          const currentIdx = currentTurn ? playerOrder.indexOf(currentTurn) : 0;
+          const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
+          await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId });
+          return { success: true, nextTurnUserId: nextUserId };
+        }
+
+        return { success: true, nextTurnUserId: session.currentTurnUserId };
+      }),
+
+    // Supervisor injects a new incident mid-session
+    supervisorInjectIncident: adminProcedure
+      .input(z.object({
+        sessionId: z.number().int(),
+        title: z.string().min(1).max(200),
+        description: z.string().max(1000).optional(),
+        dc: z.number().int().min(2).max(20).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getAiSession(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (session.status === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "Session has ended." });
+        if ((session as any).gmMode !== "supervisor") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Incident injection is only for supervisor-led sessions." });
+        }
+        // Post as an incident chain message
+        const content = input.description
+          ? `**NEW INCIDENT: ${input.title}**\n\n${input.description}`
+          : `**NEW INCIDENT: ${input.title}**`;
+        await addAiMessage({
+          sessionId: input.sessionId,
+          authorType: "gm",
+          authorId: ctx.user.id,
+          authorName: ctx.user.name ?? "Shift Supervisor",
+          content,
+          dcSet: input.dc,
+          isIncidentChain: true,
         });
         return { success: true };
       }),

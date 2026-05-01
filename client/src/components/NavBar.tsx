@@ -15,7 +15,7 @@ const publicNavItems = [
   { href: "/lobby", label: "Enter the Facility", icon: Shield },
   { href: "/play", label: "Operator File", icon: Dices },
   { href: "/incidents", label: "Incidents", icon: AlertTriangle },
-  { href: "/sessions", label: "AI Sessions", icon: Bot },
+  { href: "/sessions", label: "Sessions", icon: Bot },
 ];
 
 const adminNavItems = [

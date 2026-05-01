@@ -260,6 +260,44 @@ export default function AiSession() {
   const { user: authUser } = useAuth();
   const isGm = authUser?.role === "admin";
 
+  // Supervisor-led response state
+  const [supervisorResponseText, setSupervisorResponseText] = useState("");
+  const [supervisorDcSet, setSupervisorDcSet] = useState<string>("");
+  const [supervisorSkillRuling, setSupervisorSkillRuling] = useState<"approved" | "denied" | "partial" | "">("approved");
+  const [supervisorAdvanceTurn, setSupervisorAdvanceTurn] = useState(true);
+
+  // Supervisor incident injection state
+  const [showInjectIncident, setShowInjectIncident] = useState(false);
+  const [injectTitle, setInjectTitle] = useState("");
+  const [injectDesc, setInjectDesc] = useState("");
+  const [injectDc, setInjectDc] = useState<string>("");
+
+  const injectIncidentMutation = trpc.aiGm.supervisorInjectIncident.useMutation({
+    onSuccess: () => {
+      setInjectTitle("");
+      setInjectDesc("");
+      setInjectDc("");
+      setShowInjectIncident(false);
+      refetchMessages();
+      refetchSession();
+      toast.success("Incident injected.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const supervisorRespondMutation = trpc.aiGm.supervisorRespond.useMutation({
+    onSuccess: () => {
+      setSupervisorResponseText("");
+      setSupervisorDcSet("");
+      setSupervisorSkillRuling("approved");
+      setSupervisorAdvanceTurn(true);
+      refetchMessages();
+      refetchSession();
+      toast.success("Response posted.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const saveGmNotesMutation = trpc.aiGm.updateGmNotes.useMutation({
     onSuccess: () => { setSavingNotes(false); toast.success("Notes saved."); },
     onError: (err: { message: string }) => { setSavingNotes(false); toast.error(err.message); },
@@ -394,6 +432,7 @@ export default function AiSession() {
   const isMyTurn = session?.currentTurnUserId === user?.id;
   useTurnNotification(isMyTurn, session?.title ?? "AI Session");
   const isEnded = session?.status === "ended";
+  const isSupervisorMode = (session as any)?.gmMode === "supervisor";
 
   if (!session) {
     return (
@@ -584,13 +623,143 @@ export default function AiSession() {
 
         {/* ── GM PANEL (admin only, collapsible) ── */}
         {isGm && showGmPanel && (
-          <div className="lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-border flex flex-col overflow-hidden bg-background max-h-56 lg:max-h-none">
+          <div className="lg:w-80 shrink-0 border-b lg:border-b-0 lg:border-r border-border flex flex-col overflow-hidden bg-background max-h-64 lg:max-h-none">
             <div className="p-3 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
                 <Shield className="w-3.5 h-3.5 text-primary" />
                 <p className="text-xs font-mono text-primary tracking-widest">SUPERVISOR PANEL</p>
+                {isSupervisorMode && (
+                  <span className="ml-auto text-[10px] font-mono text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-1.5 py-0.5">
+                    MANUAL MODE
+                  </span>
+                )}
               </div>
             </div>
+
+            {/* Supervisor Response (only in supervisor-led sessions) */}
+            {isSupervisorMode && !isEnded && (
+              <div className="p-3 border-b border-border shrink-0">
+                <p className="text-xs font-mono text-muted-foreground tracking-widest mb-2 flex items-center gap-1.5">
+                  <MessageSquare className="w-3 h-3" /> NARRATIVE RESPONSE
+                </p>
+                <TextareaEl
+                  value={supervisorResponseText}
+                  onChange={(e) => setSupervisorResponseText(e.target.value)}
+                  placeholder="Write your narrative response to the player's action…"
+                  className="resize-none bg-card border-border text-foreground text-xs"
+                  rows={5}
+                />
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-mono text-muted-foreground tracking-widest block mb-1">DC SET</label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={20}
+                      value={supervisorDcSet}
+                      onChange={(e) => setSupervisorDcSet(e.target.value)}
+                      placeholder="e.g. 8"
+                      className="w-full rounded-md border border-border bg-card text-foreground text-xs px-2 py-1.5 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-mono text-muted-foreground tracking-widest block mb-1">SKILL RULING</label>
+                    <select
+                      value={supervisorSkillRuling}
+                      onChange={(e) => setSupervisorSkillRuling(e.target.value as any)}
+                      className="w-full rounded-md border border-border bg-card text-foreground text-xs px-2 py-1.5 font-mono"
+                    >
+                      <option value="approved">✓ Approved</option>
+                      <option value="partial">~ Partial</option>
+                      <option value="denied">✗ Denied</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="advanceTurn"
+                    checked={supervisorAdvanceTurn}
+                    onChange={(e) => setSupervisorAdvanceTurn(e.target.checked)}
+                    className="rounded border-border"
+                  />
+                  <label htmlFor="advanceTurn" className="text-[10px] font-mono text-muted-foreground cursor-pointer">
+                    Advance turn after posting
+                  </label>
+                </div>
+                <Button
+                  size="sm"
+                  className="mt-2 h-7 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90 w-full gap-1.5"
+                  disabled={!supervisorResponseText.trim() || supervisorRespondMutation.isPending}
+                  onClick={() => supervisorRespondMutation.mutate({
+                    sessionId,
+                    content: supervisorResponseText.trim(),
+                    dcSet: supervisorDcSet ? parseInt(supervisorDcSet) : undefined,
+                    skillRuling: supervisorSkillRuling || undefined,
+                    advanceTurn: supervisorAdvanceTurn,
+                  })}
+                >
+                  {supervisorRespondMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                  Post Response
+                </Button>
+              </div>
+            )}
+
+            {/* Inject Incident (supervisor mode only) */}
+            {isSupervisorMode && !isEnded && (
+              <div className="p-3 border-b border-border shrink-0">
+                <button
+                  className="w-full flex items-center justify-between text-xs font-mono text-muted-foreground tracking-widest hover:text-foreground transition-colors"
+                  onClick={() => setShowInjectIncident((v) => !v)}
+                >
+                  <span className="flex items-center gap-1.5"><AlertTriangle className="w-3 h-3" /> INJECT INCIDENT</span>
+                  <span className="text-[10px]">{showInjectIncident ? "▲" : "▼"}</span>
+                </button>
+                {showInjectIncident && (
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      value={injectTitle}
+                      onChange={(e) => setInjectTitle(e.target.value)}
+                      placeholder="Incident title…"
+                      className="w-full rounded-md border border-border bg-card text-foreground text-xs px-2 py-1.5 font-mono"
+                    />
+                    <TextareaEl
+                      value={injectDesc}
+                      onChange={(e) => setInjectDesc(e.target.value)}
+                      placeholder="Description (optional)…"
+                      className="resize-none bg-card border-border text-foreground text-xs"
+                      rows={2}
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={2}
+                        max={20}
+                        value={injectDc}
+                        onChange={(e) => setInjectDc(e.target.value)}
+                        placeholder="DC"
+                        className="w-20 rounded-md border border-border bg-card text-foreground text-xs px-2 py-1.5 font-mono"
+                      />
+                      <Button
+                        size="sm"
+                        className="flex-1 h-7 px-3 text-xs bg-amber-500 text-black hover:bg-amber-400 gap-1.5"
+                        disabled={!injectTitle.trim() || injectIncidentMutation.isPending}
+                        onClick={() => injectIncidentMutation.mutate({
+                          sessionId,
+                          title: injectTitle.trim(),
+                          description: injectDesc.trim() || undefined,
+                          dc: injectDc ? parseInt(injectDc) : undefined,
+                        })}
+                      >
+                        {injectIncidentMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
+                        Inject
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Private Notes */}
             <div className="p-3 border-b border-border shrink-0">
@@ -602,7 +771,7 @@ export default function AiSession() {
                 onChange={(e) => setGmNotes(e.target.value)}
                 placeholder="Plot notes, planned incidents, player observations…"
                 className="resize-none bg-card border-border text-foreground text-xs"
-                rows={5}
+                rows={4}
               />
               <Button
                 size="sm"
@@ -617,27 +786,29 @@ export default function AiSession() {
               </Button>
             </div>
 
-            {/* GM Chat */}
-            <div className="flex-1 flex flex-col overflow-hidden p-3">
-              <p className="text-xs font-mono text-muted-foreground tracking-widest mb-2 flex items-center gap-1.5 shrink-0">
-                <MessageSquare className="w-3 h-3" /> BROADCAST TO PLAYERS
-              </p>
-              <TextareaEl
-                value={gmChatText}
-                onChange={(e) => setGmChatText(e.target.value)}
-                placeholder="Send a message to the session feed as Shift Supervisor…"
-                className="resize-none bg-card border-border text-foreground text-xs flex-1"
-                rows={4}
-              />
-              <Button
-                size="sm"
-                className="mt-2 h-7 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90 w-full gap-1.5"
-                disabled={!gmChatText.trim() || sendGmChatMutation.isPending}
-                onClick={() => sendGmChatMutation.mutate({ sessionId, content: gmChatText.trim() })}
-              >
-                <Send className="w-3 h-3" /> Send
-              </Button>
-            </div>
+            {/* GM Chat (broadcast, available in both modes) */}
+            {!isSupervisorMode && (
+              <div className="flex-1 flex flex-col overflow-hidden p-3">
+                <p className="text-xs font-mono text-muted-foreground tracking-widest mb-2 flex items-center gap-1.5 shrink-0">
+                  <MessageSquare className="w-3 h-3" /> BROADCAST TO PLAYERS
+                </p>
+                <TextareaEl
+                  value={gmChatText}
+                  onChange={(e) => setGmChatText(e.target.value)}
+                  placeholder="Send a message to the session feed as Shift Supervisor…"
+                  className="resize-none bg-card border-border text-foreground text-xs flex-1"
+                  rows={4}
+                />
+                <Button
+                  size="sm"
+                  className="mt-2 h-7 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90 w-full gap-1.5"
+                  disabled={!gmChatText.trim() || sendGmChatMutation.isPending}
+                  onClick={() => sendGmChatMutation.mutate({ sessionId, content: gmChatText.trim() })}
+                >
+                  <Send className="w-3 h-3" /> Send
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -675,23 +846,33 @@ export default function AiSession() {
 
             {messages?.map((msg) => {
               const isAi = msg.authorType === "ai";
+              const isGmMsg = msg.authorType === "gm";
+              const isPlayer = msg.authorType === "player";
+              const isLeft = isAi || isGmMsg; // AI and GM messages appear on the left
               const rollData = msg.rollData ? JSON.parse(msg.rollData) : null;
 
               return (
-                <div key={msg.id} className={`flex gap-3 ${isAi ? "" : "flex-row-reverse"}`}>
+                <div key={msg.id} className={`flex gap-3 ${isLeft ? "" : "flex-row-reverse"}`}>
                   <div
                     className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
                       isAi
                         ? "bg-primary/10 border-primary/30 text-primary"
+                        : isGmMsg
+                        ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
                         : "bg-muted border-border text-muted-foreground"
                     }`}
                   >
-                    {isAi ? <Bot className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+                    {isAi ? <Bot className="w-3.5 h-3.5" /> : isGmMsg ? <Shield className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
                   </div>
 
-                  <div className={`max-w-[78%] space-y-1.5 ${isAi ? "" : "items-end flex flex-col"}`}>
+                  <div className={`max-w-[78%] space-y-1.5 ${isLeft ? "" : "items-end flex flex-col"}`}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono font-semibold text-foreground">{msg.authorName}</span>
+                      {isGmMsg && !isAi && (
+                        <span className="text-[10px] font-mono text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-1.5 py-0.5">
+                          SUPERVISOR
+                        </span>
+                      )}
                       <span className="text-xs text-muted-foreground font-mono">
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
@@ -724,6 +905,8 @@ export default function AiSession() {
                       className={`rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
                         isAi
                           ? "bg-card border border-border text-foreground"
+                          : isGmMsg
+                          ? "bg-amber-400/5 border border-amber-400/20 text-foreground"
                           : "bg-primary/10 border border-primary/20 text-foreground"
                       }`}
                     >
@@ -758,7 +941,7 @@ export default function AiSession() {
             {isSubmitting && !isRolling && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono px-1">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Shift Supervisor is reviewing…
+                {isSupervisorMode ? "Waiting for Supervisor response…" : "Shift Supervisor is reviewing…"}
               </div>
             )}
           </div>

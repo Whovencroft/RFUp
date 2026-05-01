@@ -292,7 +292,7 @@ export async function listAiSessions() {
 
 export async function updateAiSession(
   id: number,
-  data: Partial<Pick<InsertAiSession, "status" | "currentTurnUserId" | "contextSummary" | "playerOrder" | "gmNotes" | "inviteToken" | "debriefContent">>
+  data: Partial<Pick<InsertAiSession, "status" | "currentTurnUserId" | "contextSummary" | "playerOrder" | "gmNotes" | "inviteToken" | "debriefContent" | "gmMode">>
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");

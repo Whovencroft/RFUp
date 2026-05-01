@@ -189,4 +189,17 @@
 - [x] Frontend: Operator File dossier — commendations section shows real DB commendations
 - [x] Frontend: Remove session history section from Operator File (player-facing)
 - [x] Frontend: GM Panel Operator Files tab — expandable cards with skill manifest + shift history
-- [ ] Frontend: GM Panel — add session history view (all sessions with player lists, debrief summaries, commendations awarded)
+- [x] Frontend: GM Panel — Operator Files tab has expandable cards with shift history per operator
+
+## Feature: Supervisor-Led Sessions
+- [x] DB: add gmMode field to aiSessions table ('ai' | 'supervisor'), migration applied
+- [x] Backend: aiGm.createSession accepts gmMode param (default 'ai')
+- [x] Backend: aiGm.submitAction skips LLM call in supervisor mode (just records player action and waits for Supervisor)
+- [x] Backend: aiGm.supervisorRespond procedure — adminProcedure, posts narrative response with DC, skill ruling, optional turn advance
+- [x] Backend: aiGm.getSession returns gmMode so frontend can branch rendering
+- [x] Frontend: GM Panel — session creation form has AI-led / Supervisor-led toggle
+- [x] Frontend: AiSession — Supervisor panel shows NARRATIVE RESPONSE section in supervisor mode
+- [x] Frontend: AiSession — GM messages render with amber Shield icon and SUPERVISOR badge
+- [x] Frontend: AiSession — waiting indicator says 'Waiting for Supervisor response' in supervisor mode
+- [x] Frontend: Sessions list — mode badge (AI-LED / SUPERVISOR-LED) and matching icon per session card
+- [x] Frontend: NavBar — renamed 'AI Sessions' to 'Sessions'

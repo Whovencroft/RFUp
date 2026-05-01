@@ -3,7 +3,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bot, ChevronRight, Clock, CheckCircle } from "lucide-react";
+import { Bot, Shield, ChevronRight, Clock, CheckCircle } from "lucide-react";
 
 export default function Sessions() {
   const { user } = useAuth();
@@ -18,13 +18,13 @@ export default function Sessions() {
               Active Shifts
             </h1>
             <p className="text-sm text-muted-foreground mt-1 font-mono">
-              AI-run play-by-post sessions at Facility 404
+              Play-by-post sessions at Facility 404
             </p>
           </div>
           {user?.role === "admin" && (
             <Link href="/gm">
               <Button variant="outline" className="border-border text-muted-foreground hover:text-foreground gap-2">
-                <Bot className="w-4 h-4" />
+                <Shield className="w-4 h-4" />
                 Launch New Session
               </Button>
             </Link>
@@ -57,6 +57,7 @@ export default function Sessions() {
           {sessions?.map((s) => {
             const playerOrder: number[] = JSON.parse(s.playerOrder || "[]");
             const isEnded = s.status === "ended";
+            const isSupervisor = (s as any).gmMode === "supervisor";
             return (
               <Link key={s.id} href={`/sessions/${s.id}`}>
                 <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-card/80 transition-all cursor-pointer group">
@@ -64,12 +65,23 @@ export default function Sessions() {
                     <div className={`w-9 h-9 rounded-full border flex items-center justify-center shrink-0 ${
                       isEnded
                         ? "bg-muted border-border text-muted-foreground"
+                        : isSupervisor
+                        ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
                         : "bg-primary/10 border-primary/30 text-primary"
                     }`}>
-                      <Bot className="w-4 h-4" />
+                      {isSupervisor ? <Shield className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{s.title}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground truncate">{s.title}</p>
+                        <span className={`text-[10px] font-mono rounded px-1.5 py-0.5 border ${
+                          isSupervisor
+                            ? "text-amber-400 bg-amber-400/10 border-amber-400/20"
+                            : "text-primary bg-primary/10 border-primary/20"
+                        }`}>
+                          {isSupervisor ? "SUPERVISOR-LED" : "AI-LED"}
+                        </span>
+                      </div>
                       <p className="text-xs text-muted-foreground font-mono mt-0.5">
                         {playerOrder.length} operator{playerOrder.length !== 1 ? "s" : ""} ·{" "}
                         Started {new Date(s.createdAt).toLocaleDateString()}

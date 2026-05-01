@@ -102,6 +102,7 @@ export const aiSessions = mysqlTable("ai_sessions", {
   gmNotes: text("gmNotes"),                               // NEW: private GM notes
   inviteToken: varchar("inviteToken", { length: 64 }),    // NEW: invite link token
   debriefContent: text("debriefContent"),                 // NEW: post-session AI debrief
+  gmMode: mysqlEnum("gmMode", ["ai", "supervisor"]).default("ai").notNull(), // NEW: who leads the session
   createdBy: int("createdBy").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
