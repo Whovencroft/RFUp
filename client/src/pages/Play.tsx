@@ -14,7 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Dices, Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X, AlertTriangle, Printer } from "lucide-react";
+import { Dices, Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X, AlertTriangle, Printer, GitBranch, Radio, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -107,9 +107,10 @@ function CharacterCreation({ onCreated }: { onCreated: () => void }) {
 }
 
 // ── Character Edit ────────────────────────────────────────────────────────
-function CharacterEdit({ character, onDone }: { character: { id: number; name: string; jobTitle: string }; onDone: () => void }) {
+function CharacterEdit({ character, onDone }: { character: { id: number; name: string; jobTitle: string; callsign?: string | null }; onDone: () => void }) {
   const [name, setName] = useState(character.name);
   const [jobTitle, setJobTitle] = useState(character.jobTitle);
+  const [callsign, setCallsign] = useState(character.callsign ?? "");
   const utils = trpc.useUtils();
   const update = trpc.character.update.useMutation({
     onSuccess: () => { toast.success("Operator file updated."); utils.character.get.invalidate(); onDone(); },
@@ -125,14 +126,48 @@ function CharacterEdit({ character, onDone }: { character: { id: number; name: s
         <Label className="text-xs font-mono text-muted-foreground mb-1 block">JOB TITLE</Label>
         <Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="bg-input border-border text-foreground h-8 text-sm" />
       </div>
+      <div>
+        <Label className="text-xs font-mono text-muted-foreground mb-1 block">CALLSIGN <span className="opacity-50">(optional)</span></Label>
+        <Input value={callsign} onChange={(e) => setCallsign(e.target.value)} placeholder="e.g. GHOST-7, STATIC, WRAITH" className="bg-input border-border text-foreground h-8 text-sm" />
+      </div>
       <div className="flex gap-2">
-        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-3 text-xs gap-1" disabled={update.isPending} onClick={() => update.mutate({ name: name.trim(), jobTitle: jobTitle.trim() })}>
+        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-3 text-xs gap-1" disabled={update.isPending} onClick={() => update.mutate({ name: name.trim(), jobTitle: jobTitle.trim(), callsign: callsign.trim() || undefined })}>
           <Check className="w-3 h-3" /> Save
         </Button>
         <Button variant="ghost" size="sm" className="h-7 px-3 text-xs gap-1" onClick={onDone}>
           <X className="w-3 h-3" /> Cancel
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ── Skill Lineage Tree ────────────────────────────────────────────────────
+function SkillLineageTree({ skills }: { skills: { id: number; name: string; level: number; parentSkillId?: number | null }[] }) {
+  const roots = skills.filter((s) => !s.parentSkillId);
+  const getChildren = (id: number) => skills.filter((s) => s.parentSkillId === id);
+  function SkillNode({ skill, depth }: { skill: typeof skills[0]; depth: number }) {
+    const children = getChildren(skill.id);
+    return (
+      <div className={cn("relative", depth > 0 && "ml-4 pl-3 border-l border-border/50")}>
+        <div className="flex items-center gap-2 py-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary/60 flex-shrink-0" />
+          <span className="text-xs text-foreground">{skill.name}</span>
+          <span className="text-[10px] font-mono text-muted-foreground ml-auto">L{skill.level}</span>
+        </div>
+        {children.map((child) => (
+          <SkillNode key={child.id} skill={child} depth={depth + 1} />
+        ))}
+      </div>
+    );
+  }
+  if (skills.length === 0) return null;
+  return (
+    <div className="mb-4 p-3 rounded-lg bg-background/50 border border-border/50">
+      <p className="text-[10px] font-mono text-muted-foreground mb-2 tracking-widest">SKILL LINEAGE</p>
+      {roots.map((root) => (
+        <SkillNode key={root.id} skill={root} depth={0} />
+      ))}
     </div>
   );
 }
@@ -165,6 +200,21 @@ export default function Play() {
   }, [activeIncident?.id, activeIncident?.difficulty]);
 
   const [editingChar, setEditingChar] = useState(false);
+  const [showLineage, setShowLineage] = useState(false);
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const [avatarPrompt, setAvatarPrompt] = useState("");
+  const [generatingAvatar, setGeneratingAvatar] = useState(false);
+
+  const generateAvatarMutation = trpc.character.generateAvatar.useMutation({
+    onSuccess: () => {
+      setGeneratingAvatar(false);
+      utils.character.get.invalidate();
+      toast.success("Avatar generated!");
+      setShowAvatarDialog(false);
+      setAvatarPrompt("");
+    },
+    onError: (e) => { setGeneratingAvatar(false); toast.error(e.message); },
+  });
 
   // Dice state
   const [rolling, setRolling] = useState(false);
@@ -300,8 +350,35 @@ export default function Play() {
               <CharacterEdit character={character} onDone={() => setEditingChar(false)} />
             ) : (
               <>
-                <h2 className="text-2xl font-display font-bold text-foreground mt-2">{character.name}</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">{character.jobTitle}</p>
+                {/* Avatar */}
+                <div className="flex items-start gap-3 mt-2">
+                  <button
+                    onClick={() => setShowAvatarDialog(true)}
+                    className="relative flex-shrink-0 group"
+                    title="Generate avatar"
+                  >
+                    {character.avatarUrl ? (
+                      <img src={character.avatarUrl} alt="Avatar" className="w-14 h-14 rounded-lg object-cover border border-border group-hover:border-primary/50 transition-colors" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg border border-dashed border-border bg-background flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                        <Sparkles className="w-5 h-5 text-muted-foreground/40 group-hover:text-primary/60" />
+                      </div>
+                    )}
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Sparkles className="w-3 h-3 text-primary" />
+                    </div>
+                  </button>
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-display font-bold text-foreground leading-tight">{character.name}</h2>
+                    {character.callsign && (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Radio className="w-3 h-3 text-primary flex-shrink-0" />
+                        <span className="text-xs font-mono text-primary tracking-widest">{character.callsign}</span>
+                      </div>
+                    )}
+                    <p className="text-sm text-muted-foreground mt-0.5">{character.jobTitle}</p>
+                  </div>
+                </div>
                 <div className="mt-4 flex items-center gap-3">
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
                     <Zap className="w-3.5 h-3.5 text-amber-400" />
@@ -317,7 +394,24 @@ export default function Play() {
 
           {/* Skills */}
           <div className="p-5 rounded-xl border border-border bg-card">
-            <p className="text-xs font-mono text-primary mb-3 tracking-widest">SKILL MANIFEST</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-mono text-primary tracking-widest">SKILL MANIFEST</p>
+              {(character.skills?.length ?? 0) > 1 && (
+                <button
+                  onClick={() => setShowLineage((v) => !v)}
+                  className={cn(
+                    "flex items-center gap-1 text-xs transition-colors",
+                    showLineage ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <GitBranch className="w-3 h-3" />
+                  <span className="hidden sm:inline">Lineage</span>
+                </button>
+              )}
+            </div>
+            {showLineage && (
+              <SkillLineageTree skills={character.skills ?? []} />
+            )}
             <div className="space-y-2">
               {(character.skills ?? []).map((skill) => (
                 <button
@@ -519,6 +613,45 @@ export default function Play() {
           )}
         </div>
       </div>
+
+      {/* Avatar Generation Dialog */}
+      <Dialog open={showAvatarDialog} onOpenChange={setShowAvatarDialog}>
+        <DialogContent className="bg-card border-border text-foreground">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Generate Operator Avatar</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Describe what you want your operator to look like. The AI will generate a small portrait.
+          </p>
+          <div>
+            <Label className="text-xs font-mono text-muted-foreground mb-1.5 block">DESCRIPTION</Label>
+            <Input
+              value={avatarPrompt}
+              onChange={(e) => setAvatarPrompt(e.target.value)}
+              placeholder="e.g. weathered security guard, cyberpunk vibes, green tactical vest"
+              className="bg-input border-border text-foreground"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowAvatarDialog(false)}>Cancel</Button>
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={!avatarPrompt.trim() || generatingAvatar || generateAvatarMutation.isPending}
+              onClick={() => {
+                setGeneratingAvatar(true);
+                generateAvatarMutation.mutate({ prompt: avatarPrompt.trim() });
+              }}
+            >
+              {generatingAvatar || generateAvatarMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Generating...</>
+              ) : (
+                <><Sparkles className="w-4 h-4 mr-2" /> Generate</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* New Skill Dialog */}
       <Dialog open={showSkillDialog} onOpenChange={setShowSkillDialog}>

@@ -93,3 +93,76 @@
 - [x] Skill advancement dialog: AI-generated default name based on action + "more specific than last skill" rule
 - [x] Player can edit the suggested skill name before confirming
 - [x] Move chat input buttons to left side of the input bar (buttons in dialog are left-aligned; input bar has no buttons now)
+
+## Upgrade Batch 1 — Major Features
+
+### 1. Mobile-Responsive UI
+- [x] Mobile navbar: hamburger button + slide-out drawer with all nav links
+- [x] Audit and fix Play page layout on mobile (two-column → single column)
+- [x] Audit and fix AiSession page on mobile (two-panel → stacked)
+- [x] Audit and fix GmPanel, Incidents, SessionLog, Sessions pages on mobile
+- [x] Ensure all dialogs and modals are mobile-friendly
+
+### 2. Real-Time Turn Notifications
+- [x] Browser Notification API: request permission on login, fire when it becomes player's turn
+- [x] Tab title badge: show "⚡ YOUR TURN" in document.title when it's the player's turn
+- [x] Toast notification in-app when turn advances to current player
+
+### 3. Session Invite Links (GM-sendable)
+- [x] Backend: generate a signed invite token for a specific session (stored in DB)
+- [x] Backend: redeem invite token → add user to session player list
+- [x] Frontend: "Copy Invite Link" button in session header
+- [x] Frontend: invite link copies to clipboard from session header
+
+### 4. Skill History and Lineage Visualization
+- [x] DB schema: parentSkillId added to skills table
+- [x] When a new skill is added via advancement dialog, record parentSkillId
+- [x] Frontend: skill lineage tree component on character sheet (Play page)
+
+### 5. XP Spend in AI Sessions
+- [x] Frontend: XP spend prompt shown after dice animate before auto-submit
+- [x] Backend: XP deducted and non-6 dice converted before submitting to AI
+- [x] XP mechanic bug in AI sessions fixed
+
+### 6. GM Private Notes + GM Chat in Sessions
+- [x] DB schema: gmNotes column added to ai_sessions table
+- [x] Backend: gm.saveGmNotes procedure (admin only)
+- [x] Backend: gm.sendGmChat procedure added
+- [x] Frontend: GM notes panel in AiSession page (visible only to admin)
+- [x] Frontend: GM chat input in AiSession page (sends as GM, visible to all players)
+
+### 7. PDF Session Transcript Export
+- [x] Backend: aiGm.generateDebrief procedure — LLM generates full debrief
+- [x] Frontend: Debrief page at /sessions/:id/debrief with print/PDF export
+- [x] Debrief page uses @media print for clean PDF export
+
+### 8. Player Callsigns + AI-Generated Avatars
+- [x] DB schema: callsign and avatarUrl columns added to characters table
+- [x] Backend: character.update accepts callsign field
+- [x] Backend: character.generateAvatar procedure wired to image generation
+- [x] Frontend: callsign field on character sheet (Play page)
+- [x] Frontend: avatar section with text prompt input + "Generate" button + preview
+
+### 9. Recurring Shift Scheduler (GM-only)
+- [x] Frontend: "Scheduler" tab in GM Panel
+- [x] UI: set schedule label, cron expression, briefing message
+- [x] Backend: shiftSchedules.create, list, update, delete procedures
+- [x] DB schema: shift_schedules table
+- [x] Scheduled task: shift schedules stored in DB, ready for scheduled task integration
+
+### 10. Post-Session AI Debrief
+- [x] Backend: aiGm.generateDebrief procedure — calls LLM with full session transcript
+- [x] Debrief includes: most creative skill, most catastrophic failure, incident summary, narrative paragraph, commendation badge winner
+- [x] Frontend: debrief auto-generates when session is ended
+- [x] Frontend: debrief displayed at /sessions/:id/debrief
+
+### 11. Enter the Facility Lobby (replaces direct incident link)
+- [x] DB schema: session_join_requests table
+- [x] Backend: aiGm.listOpenSessions procedure
+- [x] Backend: aiGm.requestJoin procedure
+- [x] Backend: gm.listJoinRequests procedure
+- [x] Backend: gm.approveJoinRequest / gm.denyJoinRequest procedures
+- [x] Frontend: "Enter the Facility" button on Home → /lobby page
+- [x] Frontend: /lobby shows open sessions with title, incident, player count, "Request to Join" button
+- [x] Frontend: GM Panel → Personnel tab shows pending join requests with Approve/Deny
+- [x] Frontend: player sees "Request Pending" state after submitting

@@ -30,6 +30,9 @@ export const characters = mysqlTable("characters", {
   userId: int("userId").notNull(),
   name: varchar("name", { length: 128 }).notNull(),
   jobTitle: varchar("jobTitle", { length: 128 }).notNull(),
+  callsign: varchar("callsign", { length: 64 }),          // NEW: short callsign
+  avatarUrl: text("avatarUrl"),                            // NEW: AI-generated avatar URL
+  avatarPrompt: text("avatarPrompt"),                      // NEW: prompt used to generate avatar
   xp: int("xp").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -44,6 +47,7 @@ export const skills = mysqlTable("skills", {
   characterId: int("characterId").notNull(),
   name: varchar("name", { length: 256 }).notNull(),
   level: int("level").default(1).notNull(),
+  parentSkillId: int("parentSkillId"),                    // NEW: lineage tracking
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -55,9 +59,9 @@ export const incidents = mysqlTable("incidents", {
   id: int("id").autoincrement().primaryKey(),
   title: varchar("title", { length: 256 }).notNull(),
   description: text("description").notNull(),
-  difficulty: int("difficulty").default(7).notNull(), // opposing roll target
+  difficulty: int("difficulty").default(7).notNull(),
   isActive: boolean("isActive").default(false).notNull(),
-  createdBy: int("createdBy"), // null = seeded, otherwise userId
+  createdBy: int("createdBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -78,7 +82,7 @@ export const sessionLog = mysqlTable("session_log", {
     "incident_activated",
   ]).notNull(),
   description: text("description").notNull(),
-  metadata: text("metadata"), // JSON string for extra data (dice results, etc.)
+  metadata: text("metadata"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -89,14 +93,14 @@ export type InsertSessionLogEntry = typeof sessionLog.$inferInsert;
 export const aiSessions = mysqlTable("ai_sessions", {
   id: int("id").autoincrement().primaryKey(),
   title: varchar("title", { length: 256 }).notNull(),
-  incitingIncidentId: int("incitingIncidentId"), // starting incident
+  incitingIncidentId: int("incitingIncidentId"),
   status: mysqlEnum("status", ["active", "ended"]).default("active").notNull(),
-  // JSON array of userId numbers in turn order
   playerOrder: text("playerOrder").notNull().default("[]"),
-  // userId of the player whose turn it currently is (null = waiting for GM to start)
   currentTurnUserId: int("currentTurnUserId"),
-  // running context summary the AI maintains to avoid token bloat
   contextSummary: text("contextSummary"),
+  gmNotes: text("gmNotes"),                               // NEW: private GM notes
+  inviteToken: varchar("inviteToken", { length: 64 }),    // NEW: invite link token
+  debriefContent: text("debriefContent"),                 // NEW: post-session AI debrief
   createdBy: int("createdBy").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -109,21 +113,48 @@ export type InsertAiSession = typeof aiSessions.$inferInsert;
 export const aiMessages = mysqlTable("ai_messages", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull(),
-  // "ai" for the AI Shift Supervisor, or a userId for a player
-  authorType: mysqlEnum("authorType", ["ai", "player"]).notNull(),
-  authorId: int("authorId"), // null when authorType = "ai"
+  authorType: mysqlEnum("authorType", ["ai", "player", "gm"]).notNull(), // EXTENDED: added "gm"
+  authorId: int("authorId"),
   authorName: varchar("authorName", { length: 128 }).notNull(),
   content: text("content").notNull(),
-  // JSON: { dice: number[], total: number, skillName: string, skillLevel: number }
   rollData: text("rollData"),
-  // AI-set DC for this action (populated on AI response messages)
   dcSet: int("dcSet"),
-  // "approved" | "denied" | "partial" — AI ruling on skill applicability
   skillRuling: mysqlEnum("skillRuling", ["approved", "denied", "partial"]),
-  // true if this AI message introduces a new chained incident
   isIncidentChain: boolean("isIncidentChain").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type AiMessage = typeof aiMessages.$inferSelect;
 export type InsertAiMessage = typeof aiMessages.$inferInsert;
+
+// Session Join Requests: players request to join open sessions
+export const sessionJoinRequests = mysqlTable("session_join_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  userId: int("userId").notNull(),
+  userName: varchar("userName", { length: 128 }).notNull(),
+  characterName: varchar("characterName", { length: 128 }),
+  status: mysqlEnum("status", ["pending", "approved", "denied"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SessionJoinRequest = typeof sessionJoinRequests.$inferSelect;
+export type InsertSessionJoinRequest = typeof sessionJoinRequests.$inferInsert;
+
+// Shift Schedules: recurring session templates (GM-only)
+export const shiftSchedules = mysqlTable("shift_schedules", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 256 }).notNull(),
+  // cron expression e.g. "0 0 9 * * 1" = Monday 9am
+  cronExpression: varchar("cronExpression", { length: 64 }).notNull(),
+  incidentPoolIds: text("incidentPoolIds").notNull().default("[]"), // JSON array of incident IDs
+  defaultPlayerIds: text("defaultPlayerIds").notNull().default("[]"), // JSON array of user IDs
+  isActive: boolean("isActive").default(true).notNull(),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ShiftSchedule = typeof shiftSchedules.$inferSelect;
+export type InsertShiftSchedule = typeof shiftSchedules.$inferInsert;

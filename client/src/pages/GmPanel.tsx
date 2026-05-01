@@ -42,6 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { Calendar, Clock, RefreshCw } from "lucide-react";
 
 export default function GmPanel() {
   const { user, isAuthenticated } = useAuth();
@@ -107,6 +108,35 @@ export default function GmPanel() {
   const [aiSessionTitle, setAiSessionTitle] = useState("");
   const [aiSelectedIncidentId, setAiSelectedIncidentId] = useState<string>("random");
   const [aiSelectedPlayerIds, setAiSelectedPlayerIds] = useState<number[]>([]);
+
+  // Shift scheduler state
+  const [schedLabel, setSchedLabel] = useState("");
+  const [schedCron, setSchedCron] = useState("0 0 9 * * 1");
+  const [schedDesc, setSchedDesc] = useState("");
+  const [schedEnabled, setSchedEnabled] = useState(true);
+
+  const { data: schedules, refetch: refetchSchedules } = trpc.shiftSchedules.list.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "admin",
+  });
+
+  const createSchedule = trpc.shiftSchedules.create.useMutation({
+    onSuccess: () => {
+      toast.success("Shift schedule created.");
+      setSchedLabel(""); setSchedCron("0 0 9 * * 1"); setSchedDesc("");
+      refetchSchedules();
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+
+  const updateSchedule = trpc.shiftSchedules.update.useMutation({
+    onSuccess: () => refetchSchedules(),
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+
+  const deleteSchedule = trpc.shiftSchedules.delete.useMutation({
+    onSuccess: () => { toast.success("Schedule removed."); refetchSchedules(); },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
 
   const { data: aiSessions, refetch: refetchAiSessions } = trpc.aiGm.listSessions.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
@@ -242,6 +272,10 @@ export default function GmPanel() {
                 {userList.filter((u) => u.role === "admin").length} supervisors
               </span>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="scheduler" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+            <Calendar className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Scheduler</span>
           </TabsTrigger>
           <TabsTrigger value="ai-sessions" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <Bot className="w-3.5 h-3.5" />
@@ -537,6 +571,77 @@ export default function GmPanel() {
         </TabsContent>
 
         {/* ── AI Sessions Tab ── */}
+        {/* ── Shift Scheduler Tab ── */}
+        <TabsContent value="scheduler" className="mt-0">
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Create schedule */}
+            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+              <div>
+                <p className="text-xs font-mono text-primary tracking-widest mb-1">NEW RECURRING SHIFT</p>
+                <p className="text-sm text-muted-foreground">Schedule a recurring shift briefing posted to the Session Log on a cron schedule.</p>
+              </div>
+              <div>
+                <Label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">LABEL</Label>
+                <Input value={schedLabel} onChange={(e) => setSchedLabel(e.target.value)} placeholder="e.g. Monday Morning Briefing" className="bg-input border-border text-foreground" />
+              </div>
+              <div>
+                <Label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">CRON EXPRESSION (6-field)</Label>
+                <Input value={schedCron} onChange={(e) => setSchedCron(e.target.value)} placeholder="0 0 9 * * 1" className="bg-input border-border text-foreground font-mono" />
+                <p className="text-xs text-muted-foreground mt-1">Format: sec min hour day month weekday — e.g. <code className="font-mono">0 0 9 * * 1</code> = every Monday 9 AM</p>
+              </div>
+              <div>
+                <Label className="text-xs font-mono text-muted-foreground mb-1.5 block tracking-widest">BRIEFING MESSAGE (optional)</Label>
+                <Textarea value={schedDesc} onChange={(e) => setSchedDesc(e.target.value)} placeholder="What should the AI post as the shift briefing?" className="bg-input border-border text-foreground resize-none" rows={3} />
+              </div>
+              <Button
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+                disabled={!schedLabel.trim() || !schedCron.trim() || createSchedule.isPending}
+                onClick={() => createSchedule.mutate({ title: schedLabel.trim(), cronExpression: schedCron.trim() })}
+              >
+                {createSchedule.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+                Create Schedule
+              </Button>
+            </div>
+
+            {/* Schedule list */}
+            <div className="space-y-3">
+              <p className="text-xs font-mono text-muted-foreground tracking-widest">ACTIVE SCHEDULES</p>
+              {!schedules || schedules.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                  <Calendar className="w-6 h-6 text-muted-foreground mx-auto mb-2 opacity-40" />
+                  <p className="text-xs text-muted-foreground">No schedules yet.</p>
+                </div>
+              ) : (
+                  schedules.map((sched) => (
+                    <div key={sched.id} className="flex items-start justify-between p-3 rounded-lg border border-border bg-card gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{sched.title}</p>
+                        <p className="text-xs font-mono text-muted-foreground mt-0.5">{sched.cronExpression}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          variant="ghost" size="sm"
+                          className={`h-7 px-2 text-xs ${sched.isActive ? "text-primary" : "text-muted-foreground"}`}
+                          onClick={() => updateSchedule.mutate({ id: sched.id, isActive: !sched.isActive })}
+                          title={sched.isActive ? "Disable" : "Enable"}
+                        >
+                          {sched.isActive ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteSchedule.mutate({ id: sched.id })}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
         <TabsContent value="ai-sessions" className="mt-0">
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Launcher */}

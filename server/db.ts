@@ -15,6 +15,10 @@ import {
   InsertAiSession,
   aiMessages,
   InsertAiMessage,
+  sessionJoinRequests,
+  InsertSessionJoinRequest,
+  shiftSchedules,
+  InsertShiftSchedule,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -103,7 +107,7 @@ export async function createCharacter(data: InsertCharacter) {
 
 export async function updateCharacter(
   id: number,
-  data: Partial<Pick<InsertCharacter, "name" | "jobTitle" | "xp">>
+  data: Partial<Pick<InsertCharacter, "name" | "jobTitle" | "xp" | "callsign" | "avatarUrl" | "avatarPrompt">>
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
@@ -131,6 +135,14 @@ export async function getAllCharactersWithSkills() {
 // ── Skills ─────────────────────────────────────────────────────────────────
 
 export async function getSkillsByCharacterId(characterId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(skills).where(eq(skills.characterId, characterId));
+}
+
+// ── Skill Lineage ──────────────────────────────────────────────────────────
+
+export async function getSkillLineage(characterId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(skills).where(eq(skills.characterId, characterId));
@@ -278,11 +290,96 @@ export async function listAiSessions() {
 
 export async function updateAiSession(
   id: number,
-  data: Partial<Pick<InsertAiSession, "status" | "currentTurnUserId" | "contextSummary" | "playerOrder">>
+  data: Partial<Pick<InsertAiSession, "status" | "currentTurnUserId" | "contextSummary" | "playerOrder" | "gmNotes" | "inviteToken" | "debriefContent">>
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.update(aiSessions).set(data).where(eq(aiSessions.id, id));
+}
+
+export async function getAiSessionByInviteToken(token: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(aiSessions).where(eq(aiSessions.inviteToken, token)).limit(1);
+  return result[0];
+}
+
+// ── Session Join Requests ──────────────────────────────────────────────────
+
+export async function createJoinRequest(data: InsertSessionJoinRequest) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  // Check for existing request
+  const existing = await db
+    .select()
+    .from(sessionJoinRequests)
+    .where(and(eq(sessionJoinRequests.sessionId, data.sessionId), eq(sessionJoinRequests.userId, data.userId)))
+    .limit(1);
+  if (existing[0]) return existing[0];
+  await db.insert(sessionJoinRequests).values(data);
+  const result = await db
+    .select()
+    .from(sessionJoinRequests)
+    .where(and(eq(sessionJoinRequests.sessionId, data.sessionId), eq(sessionJoinRequests.userId, data.userId)))
+    .limit(1);
+  return result[0]!;
+}
+
+export async function listJoinRequests(sessionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(sessionJoinRequests).where(eq(sessionJoinRequests.sessionId, sessionId)).orderBy(desc(sessionJoinRequests.createdAt));
+}
+
+export async function listAllPendingJoinRequests() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(sessionJoinRequests).where(eq(sessionJoinRequests.status, "pending")).orderBy(desc(sessionJoinRequests.createdAt));
+}
+
+export async function updateJoinRequest(id: number, status: "approved" | "denied") {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(sessionJoinRequests).set({ status }).where(eq(sessionJoinRequests.id, id));
+}
+
+export async function getJoinRequestByUserAndSession(userId: number, sessionId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(sessionJoinRequests)
+    .where(and(eq(sessionJoinRequests.userId, userId), eq(sessionJoinRequests.sessionId, sessionId)))
+    .limit(1);
+  return result[0];
+}
+
+// ── Shift Schedules ────────────────────────────────────────────────────────
+
+export async function createShiftSchedule(data: InsertShiftSchedule) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(shiftSchedules).values(data);
+  const result = await db.select().from(shiftSchedules).orderBy(desc(shiftSchedules.createdAt)).limit(1);
+  return result[0]!;
+}
+
+export async function listShiftSchedules() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(shiftSchedules).orderBy(desc(shiftSchedules.createdAt));
+}
+
+export async function updateShiftSchedule(id: number, data: Partial<Pick<InsertShiftSchedule, "title" | "cronExpression" | "incidentPoolIds" | "defaultPlayerIds" | "isActive">>) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(shiftSchedules).set(data).where(eq(shiftSchedules.id, id));
+}
+
+export async function deleteShiftSchedule(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(shiftSchedules).where(eq(shiftSchedules.id, id));
 }
 
 // ── AI Messages ────────────────────────────────────────────────────────────

@@ -1,0 +1,15 @@
+{
+  "query": "CREATE TABLE `shift_schedules` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(256) NOT NULL,\n\t`cronExpression` varchar(64) NOT NULL,\n\t`incidentPoolIds` text NOT NULL DEFAULT ('[]'),\n\t`defaultPlayerIds` text NOT NULL DEFAULT ('[]'),\n\t`isActive` boolean NOT NULL DEFAULT true,\n\t`createdBy` int NOT NULL,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `shift_schedules_id` PRIMARY KEY(`id`)\n)",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XkwVb4v7AT7VCj.bf352544bc52 --database gBAwcJRbDodgjaFt6Ce2jU --execute CREATE TABLE `shift_schedules` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(256) NOT NULL,\n\t`cronExpression` varchar(64) NOT NULL,\n\t`incidentPoolIds` text NOT NULL DEFAULT ('[]'),\n\t`defaultPlayerIds` text NOT NULL DEFAULT ('[]'),\n\t`isActive` boolean NOT NULL DEFAULT true,\n\t`createdBy` int NOT NULL,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `shift_schedules_id` PRIMARY KEY(`id`)\n)",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 5 column 47 near \"'[]'),",
+    "\t`defaultPlayerIds` text NOT NULL DEFAULT ('[]'),",
+    "\t`isActive` boolean NOT NULL DEFAULT true,",
+    "\t`createdBy` int NOT NULL,",
+    "\t`createdAt` timestamp NOT NULL DEFAULT (now()),",
+    "\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,",
+    "\tCONSTRAINT `shift_schedules_id` PRIMARY KEY(`id`)",
+    ")\""
+  ]
+}

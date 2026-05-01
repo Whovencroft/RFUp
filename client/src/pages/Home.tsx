@@ -46,7 +46,7 @@ export default function Home() {
             </p>
             <div className="flex flex-wrap gap-3">
               {isAuthenticated ? (
-                <Link href="/play">
+                <Link href="/lobby">
                   <Button className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
                     <Dices className="w-4 h-4" />
                     Enter the Facility

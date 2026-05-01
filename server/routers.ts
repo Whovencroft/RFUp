@@ -11,6 +11,7 @@ import {
   getAllCharacters,
   getAllCharactersWithSkills,
   getSkillsByCharacterId,
+  getSkillLineage,
   addSkill,
   getAllIncidents,
   getActiveIncidents,
@@ -24,12 +25,24 @@ import {
   clearSessionLog,
   createAiSession,
   getAiSession,
+  getAiSessionByInviteToken,
   listAiSessions,
   updateAiSession,
   addAiMessage,
   getAiMessages,
+  createJoinRequest,
+  listJoinRequests,
+  listAllPendingJoinRequests,
+  updateJoinRequest,
+  getJoinRequestByUserAndSession,
+  createShiftSchedule,
+  listShiftSchedules,
+  updateShiftSchedule,
+  deleteShiftSchedule,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
+import { generateImage } from "./_core/imageGeneration";
+import { nanoid } from "nanoid";
 
 // ── Admin guard ────────────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -86,7 +99,11 @@ export const appRouter = router({
       }),
 
     update: protectedProcedure
-      .input(z.object({ name: z.string().min(1).max(128).optional(), jobTitle: z.string().min(1).max(128).optional() }))
+      .input(z.object({
+        name: z.string().min(1).max(128).optional(),
+        jobTitle: z.string().min(1).max(128).optional(),
+        callsign: z.string().max(64).optional(),
+      }))
       .mutation(async ({ ctx, input }) => {
         const char = await getCharacterByUserId(ctx.user.id);
         if (!char) throw new TRPCError({ code: "NOT_FOUND" });
@@ -96,6 +113,23 @@ export const appRouter = router({
 
     listAll: protectedProcedure.query(async () => {
       return getAllCharactersWithSkills();
+    }),
+
+    generateAvatar: protectedProcedure
+      .input(z.object({ prompt: z.string().min(1).max(500) }))
+      .mutation(async ({ ctx, input }) => {
+        const char = await getCharacterByUserId(ctx.user.id);
+        if (!char) throw new TRPCError({ code: "NOT_FOUND" });
+        const fullPrompt = `Facility 404 data center security operator ID badge portrait. ${input.prompt}. Style: retro sci-fi badge photo, slightly worn, dark background, professional but slightly absurd. Square format.`;
+        const { url } = await generateImage({ prompt: fullPrompt });
+        await updateCharacter(char.id, { avatarUrl: url, avatarPrompt: input.prompt });
+        return { avatarUrl: url };
+      }),
+
+    skillLineage: protectedProcedure.query(async ({ ctx }) => {
+      const char = await getCharacterByUserId(ctx.user.id);
+      if (!char) return [];
+      return getSkillLineage(char.id);
     }),
   }),
 
@@ -623,11 +657,152 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
         };
       }),
 
-    // GM ends the session
+    // GM ends the session and generates a debrief
     endSession: adminProcedure
       .input(z.object({ sessionId: z.number().int() }))
       .mutation(async ({ input }) => {
-        await updateAiSession(input.sessionId, { status: "ended" });
+        const session = await getAiSession(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        const messages = await getAiMessages(input.sessionId, 100);
+        const transcript = messages.slice(-30).map((m) =>
+          `[${m.authorName}]: ${m.content}${m.rollData ? ` (rolled: ${JSON.parse(m.rollData).dice.join(",")} = ${JSON.parse(m.rollData).total})` : ""}`
+        ).join("\n");
+        const debriefPrompt = `You are the AI Shift Supervisor for Facility 404. The shift has ended. Write a brief post-shift debrief report (3-5 paragraphs) covering: (1) a one-paragraph narrative summary of what happened, (2) most creative skill usage, (3) most catastrophic failure, (4) total incidents encountered, (5) a commendation for the most creative player. Tone: dry, bureaucratic, slightly proud. Format as a formal incident report.\n\nSESSION TRANSCRIPT:\n${transcript}`;
+        const debriefResponse = await invokeLLM({ messages: [{ role: "user", content: debriefPrompt }] });
+        const debriefContent = String(debriefResponse.choices[0]?.message?.content ?? "Shift concluded without incident.");
+        await updateAiSession(input.sessionId, { status: "ended", debriefContent });
+        return { success: true, debriefContent };
+      }),
+
+    // GM updates private notes for a session
+    updateGmNotes: adminProcedure
+      .input(z.object({ sessionId: z.number().int(), notes: z.string().max(5000) }))
+      .mutation(async ({ input }) => {
+        await updateAiSession(input.sessionId, { gmNotes: input.notes });
+        return { success: true };
+      }),
+
+    // GM sends a message to the session feed
+    gmSendMessage: adminProcedure
+      .input(z.object({ sessionId: z.number().int(), content: z.string().min(1).max(2000) }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getAiSession(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        await addAiMessage({
+          sessionId: input.sessionId,
+          authorType: "gm",
+          authorId: ctx.user.id,
+          authorName: "Shift Supervisor",
+          content: input.content,
+          isIncidentChain: false,
+        });
+        return { success: true };
+      }),
+
+    // Generate a session invite link token
+    generateInviteToken: adminProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .mutation(async ({ input }) => {
+        const token = nanoid(24);
+        await updateAiSession(input.sessionId, { inviteToken: token });
+        return { token };
+      }),
+
+    // Resolve an invite token to a session
+    resolveInvite: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const session = await getAiSessionByInviteToken(input.token);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Invalid or expired invite link." });
+        return { sessionId: session.id, title: session.title, status: session.status };
+      }),
+  }),
+
+  // ── Session Join Requests ─────────────────────────────────────────────────
+  joinRequests: router({
+    request: protectedProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        const char = await getCharacterByUserId(ctx.user.id);
+        const req = await createJoinRequest({
+          sessionId: input.sessionId,
+          userId: ctx.user.id,
+          userName: ctx.user.name ?? "Unknown Operator",
+          characterName: char?.name ?? undefined,
+        });
+        return req;
+      }),
+
+    myStatus: protectedProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .query(async ({ ctx, input }) => {
+        return getJoinRequestByUserAndSession(ctx.user.id, input.sessionId);
+      }),
+
+    pendingAll: adminProcedure.query(async () => {
+      return listAllPendingJoinRequests();
+    }),
+
+    forSession: adminProcedure
+      .input(z.object({ sessionId: z.number().int() }))
+      .query(async ({ input }) => {
+        return listJoinRequests(input.sessionId);
+      }),
+
+    respond: adminProcedure
+      .input(z.object({ requestId: z.number().int(), status: z.enum(["approved", "denied"]) }))
+      .mutation(async ({ input }) => {
+        await updateJoinRequest(input.requestId, input.status);
+        return { success: true };
+      }),
+  }),
+
+  // ── Shift Schedules (GM only) ─────────────────────────────────────────────
+  shiftSchedules: router({
+    list: adminProcedure.query(async () => {
+      return listShiftSchedules();
+    }),
+
+    create: adminProcedure
+      .input(z.object({
+        title: z.string().min(1).max(256),
+        cronExpression: z.string().min(1).max(64),
+        incidentPoolIds: z.array(z.number().int()).default([]),
+        defaultPlayerIds: z.array(z.number().int()).default([]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return createShiftSchedule({
+          title: input.title,
+          cronExpression: input.cronExpression,
+          incidentPoolIds: JSON.stringify(input.incidentPoolIds),
+          defaultPlayerIds: JSON.stringify(input.defaultPlayerIds),
+          createdBy: ctx.user.id,
+        });
+      }),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number().int(),
+        title: z.string().min(1).max(256).optional(),
+        cronExpression: z.string().min(1).max(64).optional(),
+        incidentPoolIds: z.array(z.number().int()).optional(),
+        defaultPlayerIds: z.array(z.number().int()).optional(),
+        isActive: z.boolean().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, incidentPoolIds, defaultPlayerIds, ...rest } = input;
+        await updateShiftSchedule(id, {
+          ...rest,
+          ...(incidentPoolIds !== undefined ? { incidentPoolIds: JSON.stringify(incidentPoolIds) } : {}),
+          ...(defaultPlayerIds !== undefined ? { defaultPlayerIds: JSON.stringify(defaultPlayerIds) } : {}),
+        });
+        return { success: true };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        await deleteShiftSchedule(input.id);
         return { success: true };
       }),
   }),

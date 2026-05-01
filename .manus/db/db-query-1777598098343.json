@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `session_join_requests` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`sessionId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`userName` varchar(128) NOT NULL,\n\t`characterName` varchar(128),\n\t`status` enum('pending','approved','denied') NOT NULL DEFAULT 'pending',\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `session_join_requests_id` PRIMARY KEY(`id`)\n)",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XkwVb4v7AT7VCj.bf352544bc52 --database gBAwcJRbDodgjaFt6Ce2jU --execute CREATE TABLE `session_join_requests` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`sessionId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`userName` varchar(128) NOT NULL,\n\t`characterName` varchar(128),\n\t`status` enum('pending','approved','denied') NOT NULL DEFAULT 'pending',\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `session_join_requests_id` PRIMARY KEY(`id`)\n)",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 159
+}

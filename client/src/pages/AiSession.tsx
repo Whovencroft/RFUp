@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTurnNotification } from "@/hooks/useTurnNotification";
 import { useParams, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -28,7 +29,15 @@ import {
   Star,
   Sparkles,
   Loader2,
+  Link2,
+  StickyNote,
+  MessageSquare,
+  FileText,
+  Shield,
+  Send,
 } from "lucide-react";
+import { Textarea as TextareaEl } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 // ── Die Face ─────────────────────────────────────────────────────────────────
 
@@ -242,6 +251,25 @@ export default function AiSession() {
   const [suggestedSkillLevel, setSuggestedSkillLevel] = useState(2);
   const [isSuggestingName, setIsSuggestingName] = useState(false);
 
+  // GM panel state
+  const [showGmPanel, setShowGmPanel] = useState(false);
+  const [gmNotes, setGmNotes] = useState("");
+  const [gmChatText, setGmChatText] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+
+  const { user: authUser } = useAuth();
+  const isGm = authUser?.role === "admin";
+
+  const saveGmNotesMutation = trpc.aiGm.updateGmNotes.useMutation({
+    onSuccess: () => { setSavingNotes(false); toast.success("Notes saved."); },
+    onError: (err: { message: string }) => { setSavingNotes(false); toast.error(err.message); },
+  });
+
+  const sendGmChatMutation = trpc.aiGm.gmSendMessage.useMutation({
+    onSuccess: () => { setGmChatText(""); refetchMessages(); },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+
   const { data: session, refetch: refetchSession } = trpc.aiGm.getSession.useQuery(
     { sessionId },
     { enabled: !!sessionId, refetchInterval: 5000 }
@@ -372,6 +400,7 @@ export default function AiSession() {
   }
 
   const isMyTurn = session.currentTurnUserId === user?.id;
+  useTurnNotification(isMyTurn, session?.title ?? "AI Session");
   const isEnded = session.status === "ended";
 
   const skills = myChar?.skills && myChar.skills.length > 0
@@ -394,7 +423,43 @@ export default function AiSession() {
               <h1 className="text-sm font-semibold text-foreground truncate">{session.title}</h1>
             </div>
           </div>
-          <div className="shrink-0">
+          <div className="shrink-0 flex items-center gap-2">
+            {/* Invite link */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-muted-foreground hover:text-foreground"
+              title="Copy invite link"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                toast.success("Invite link copied to clipboard.");
+              }}
+            >
+              <Link2 className="w-3.5 h-3.5" />
+            </Button>
+
+            {/* Debrief link (ended sessions) */}
+            {isEnded && (
+              <Link href={`/sessions/${sessionId}/debrief`}>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-foreground" title="View debrief">
+                  <FileText className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            )}
+
+            {/* GM panel toggle */}
+            {isGm && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-7 px-2 ${showGmPanel ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                title="Shift Supervisor panel"
+                onClick={() => setShowGmPanel((v) => !v)}
+              >
+                <Shield className="w-3.5 h-3.5" />
+              </Button>
+            )}
+
             {isEnded ? (
               <Badge variant="outline" className="text-muted-foreground border-border font-mono text-xs">
                 SHIFT ENDED
@@ -420,10 +485,10 @@ export default function AiSession() {
       </div>
 
       {/* ── Two-Panel Body ── */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
 
         {/* ── LEFT PANEL: Operator File ── */}
-        <div className="w-72 shrink-0 border-r border-border flex flex-col overflow-hidden bg-background">
+        <div className="lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-border flex flex-col overflow-hidden bg-background max-h-56 lg:max-h-none">
 
           {/* Operator header */}
           <div className="p-4 border-b border-border shrink-0">
@@ -516,6 +581,65 @@ export default function AiSession() {
             </div>
           )}
         </div>
+
+        {/* ── GM PANEL (admin only, collapsible) ── */}
+        {isGm && showGmPanel && (
+          <div className="lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-border flex flex-col overflow-hidden bg-background max-h-56 lg:max-h-none">
+            <div className="p-3 border-b border-border shrink-0">
+              <div className="flex items-center gap-2">
+                <Shield className="w-3.5 h-3.5 text-primary" />
+                <p className="text-xs font-mono text-primary tracking-widest">SUPERVISOR PANEL</p>
+              </div>
+            </div>
+
+            {/* Private Notes */}
+            <div className="p-3 border-b border-border shrink-0">
+              <p className="text-xs font-mono text-muted-foreground tracking-widest mb-2 flex items-center gap-1.5">
+                <StickyNote className="w-3 h-3" /> PRIVATE NOTES
+              </p>
+              <TextareaEl
+                value={gmNotes}
+                onChange={(e) => setGmNotes(e.target.value)}
+                placeholder="Plot notes, planned incidents, player observations…"
+                className="resize-none bg-card border-border text-foreground text-xs"
+                rows={5}
+              />
+              <Button
+                size="sm"
+                className="mt-2 h-7 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90 w-full"
+                disabled={savingNotes || saveGmNotesMutation.isPending}
+                onClick={() => {
+                  setSavingNotes(true);
+                  saveGmNotesMutation.mutate({ sessionId, notes: gmNotes });
+                }}
+              >
+                {savingNotes ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save Notes"}
+              </Button>
+            </div>
+
+            {/* GM Chat */}
+            <div className="flex-1 flex flex-col overflow-hidden p-3">
+              <p className="text-xs font-mono text-muted-foreground tracking-widest mb-2 flex items-center gap-1.5 shrink-0">
+                <MessageSquare className="w-3 h-3" /> BROADCAST TO PLAYERS
+              </p>
+              <TextareaEl
+                value={gmChatText}
+                onChange={(e) => setGmChatText(e.target.value)}
+                placeholder="Send a message to the session feed as Shift Supervisor…"
+                className="resize-none bg-card border-border text-foreground text-xs flex-1"
+                rows={4}
+              />
+              <Button
+                size="sm"
+                className="mt-2 h-7 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90 w-full gap-1.5"
+                disabled={!gmChatText.trim() || sendGmChatMutation.isPending}
+                onClick={() => sendGmChatMutation.mutate({ sessionId, content: gmChatText.trim() })}
+              >
+                <Send className="w-3 h-3" /> Send
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* ── RIGHT PANEL: Incident + Chat + Input ── */}
         <div className="flex-1 flex flex-col overflow-hidden">

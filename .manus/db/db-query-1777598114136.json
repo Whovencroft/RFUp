@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE ai_messages MODIFY COLUMN authorType enum('ai','player','gm') NOT NULL;\nALTER TABLE ai_sessions ADD COLUMN gmNotes text;\nALTER TABLE ai_sessions ADD COLUMN inviteToken varchar(64);\nALTER TABLE ai_sessions ADD COLUMN debriefContent text;\nALTER TABLE characters ADD COLUMN callsign varchar(64);\nALTER TABLE characters ADD COLUMN avatarUrl text;\nALTER TABLE characters ADD COLUMN avatarPrompt text;\nALTER TABLE skills ADD COLUMN parentSkillId int",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XkwVb4v7AT7VCj.bf352544bc52 --database gBAwcJRbDodgjaFt6Ce2jU --execute ALTER TABLE ai_messages MODIFY COLUMN authorType enum('ai','player','gm') NOT NULL;\nALTER TABLE ai_sessions ADD COLUMN gmNotes text;\nALTER TABLE ai_sessions ADD COLUMN inviteToken varchar(64);\nALTER TABLE ai_sessions ADD COLUMN debriefContent text;\nALTER TABLE characters ADD COLUMN callsign varchar(64);\nALTER TABLE characters ADD COLUMN avatarUrl text;\nALTER TABLE characters ADD COLUMN avatarPrompt text;\nALTER TABLE skills ADD COLUMN parentSkillId int",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1433
+}
