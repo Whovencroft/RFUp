@@ -607,7 +607,7 @@ Keep it under 200 words. Write in second person ("you"). Dry, grounded tone.`;
         const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
         const currentIdx = playerOrder.indexOf(ctx.user.id);
         const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
-        await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId });
+        await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId, turnStartedAt: new Date(), lastTimeoutAlertUserId: null });
 
         // In supervisor-led mode, the Supervisor writes the response manually — no AI call
         if ((session as any).gmMode === "supervisor") {
@@ -852,7 +852,7 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           const currentTurn = session.currentTurnUserId;
           const currentIdx = currentTurn ? playerOrder.indexOf(currentTurn) : 0;
           const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
-          await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId });
+          await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId, turnStartedAt: new Date(), lastTimeoutAlertUserId: null });
           return { success: true, nextTurnUserId: nextUserId, xpAwarded };
         }
 
@@ -944,7 +944,7 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
         const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
         const currentIdx = playerOrder.indexOf(session.currentTurnUserId ?? -1);
         const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
-        await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId });
+        await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId, turnStartedAt: new Date(), lastTimeoutAlertUserId: null });
         // Post a system message noting the skip
         const skippedChar = await getCharacterByUserId(session.currentTurnUserId ?? 0);
         const skippedName = skippedChar?.name ?? `Operator #${session.currentTurnUserId}`;
@@ -994,6 +994,18 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           authorName: "System",
           content: `🚫 **${kickedName} has been removed from the session** by the Shift Supervisor.${reason}`,
         });
+        // Send coaching-style notification to the project owner (Shift Supervisor)
+        const supervisorName = ctx.user.name ?? "Shift Supervisor";
+        const sessionTitle = session.title ?? `Session #${input.sessionId}`;
+        const coachingReason = input.reason?.trim() || "no response within the expected window";
+        await notifyOwner({
+          title: `Operator ${kickedName} removed from "${sessionTitle}"`,
+          content: `${supervisorName} removed ${kickedName} from the session "${sessionTitle}".
+
+Reason noted: ${coachingReason}
+
+Coaching note for ${kickedName}: Every shift is a learning opportunity. Missing a turn happens — what matters is getting back in the rotation. Review the session debrief when it's published, reflect on what you would have done, and reach out to your Shift Supervisor if you have questions. We want you back on the floor.`,
+        }).catch(() => {});
         return { success: true, newPlayerOrder: newOrder, nextTurnUserId };
       }),
   }),

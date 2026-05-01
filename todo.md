@@ -238,3 +238,11 @@
 - [x] Backend: aiGm.getPlayerActivity — return each player's last action timestamp for the session so frontend can compute inactivity duration
 - [x] Frontend: AiSession PLAYER MANAGEMENT — show "ACTIVE" amber badge next to player name if they acted within 24h; skip/kick always available
 - [x] Frontend: AiSession kick dialog — show amber WARNING banner if the player was active within 24h
+
+## Feature: Kick Coaching Notification + Turn Timeout Alert
+- [x] Backend: kickPlayer procedure — sends coaching-style notification (via notifyOwner) with session name, reason, and a coaching message encouraging the operator to review the debrief and re-engage
+- [x] Backend: /api/scheduled/check-turn-timeouts — POST endpoint checks all active sessions for current-turn players who haven't acted in 24h and notifies the Shift Supervisor with session name and hours elapsed
+- [x] Scheduled task: hourly cron (every hour) calls the endpoint; requires site to be deployed to fire
+- [x] DB: turnStartedAt column on aiSessions — written on every turn advance, used for accurate 24h detection
+- [x] DB: lastTimeoutAlertUserId column on aiSessions — dedup: only one alert per player per stalled turn; reset to null on turn advance
+- [x] Backend: all three turn-advance paths write turnStartedAt + reset lastTimeoutAlertUserId to null

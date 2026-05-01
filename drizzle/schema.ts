@@ -103,6 +103,8 @@ export const aiSessions = mysqlTable("ai_sessions", {
   inviteToken: varchar("inviteToken", { length: 64 }),    // NEW: invite link token
   debriefContent: text("debriefContent"),                 // NEW: post-session AI debrief
   gmMode: mysqlEnum("gmMode", ["ai", "supervisor"]).default("ai").notNull(), // NEW: who leads the session
+  turnStartedAt: timestamp("turnStartedAt"),                // when the current turn began (for 24h timeout)
+  lastTimeoutAlertUserId: int("lastTimeoutAlertUserId"),    // userId we last sent a timeout alert for (dedup)
   createdBy: int("createdBy").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

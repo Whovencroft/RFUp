@@ -44,6 +44,47 @@ async function startServer() {
       createContext,
     })
   );
+  // Scheduled task endpoint: check for 24h turn inactivity and notify Shift Supervisor
+  app.post("/api/scheduled/check-turn-timeouts", async (req, res) => {
+    try {
+      const { listAiSessions, getDb } = await import("../db");
+      const { notifyOwner } = await import("./notification");
+      const { aiMessages } = await import("../../drizzle/schema");
+      const { and, eq, desc } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) { res.json({ checked: 0, alerted: 0 }); return; }
+      const sessions = await listAiSessions();
+      const activeSessions = sessions.filter((s: any) => s.status === "active");
+      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+      let alerted = 0;
+      for (const session of activeSessions) {
+        const currentTurnUserId = (session as any).currentTurnUserId;
+        if (!currentTurnUserId) continue;
+        // Use turnStartedAt for accurate 24h detection (avoids false-positive on first turn)
+        const turnStartedAt = (session as any).turnStartedAt;
+        if (!turnStartedAt) continue; // no turn has started yet, skip
+        const turnStartMs = turnStartedAt instanceof Date ? turnStartedAt.getTime() : Number(turnStartedAt);
+        const elapsed = Date.now() - turnStartMs;
+        if (elapsed < TWENTY_FOUR_HOURS) continue;
+        // Dedup: skip if we already alerted for this exact player on this session
+        if ((session as any).lastTimeoutAlertUserId === currentTurnUserId) continue;
+        const hoursElapsed = Math.floor(elapsed / (60 * 60 * 1000));
+        await notifyOwner({
+          title: `Turn timeout in "${(session as any).title}" — Operator #${currentTurnUserId}`,
+          content: `Operator #${currentTurnUserId} has not taken their turn in session "${(session as any).title}" for ${hoursElapsed} hours.\n\nYou can skip their turn or remove them from the session in the Shift Supervisor panel.`,
+        }).catch(() => {});
+        // Mark this alert so we don't spam the same stall again
+        const { updateAiSession } = await import("../db");
+        await updateAiSession(session.id, { lastTimeoutAlertUserId: currentTurnUserId }).catch(() => {});
+        alerted++;
+      }
+      res.json({ checked: activeSessions.length, alerted });
+    } catch (err) {
+      console.error("[check-turn-timeouts]", err);
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
