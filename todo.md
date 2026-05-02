@@ -252,6 +252,11 @@
 - [x] Batch all timeout alerts into a single notifyOwner call per run (not one per stalled player)
 - [x] Removed unused imports from the endpoint (aiMessages, and, eq, desc)
 
+## Feature: Portrait Lightbox
+- [x] Frontend: Play page — add ZoomIn button on portrait thumbnail (bottom-right corner)
+- [x] Frontend: Play page — lightbox overlay shows full-size portrait with name, callsign, job title and close button
+- [x] Frontend: Play page — Sparkles re-generate hint on hover (top-right corner) when portrait exists
+
 ## Feature: Supervisor Notifications Feed
 - [x] DB: supervisorNotifications table (id, sessionId, sessionTitle, supervisorUserId, type, playerName, message, isRead, createdAt)
 - [x] Backend: addSupervisorNotification helper in db.ts

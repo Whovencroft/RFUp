@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Plus, Zap, Star, LogIn, Loader2, ChevronRight, Pencil, Check, X,
-  Printer, GitBranch, Radio, Sparkles, Award,
+  Printer, GitBranch, Radio, Sparkles, Award, ZoomIn,
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -190,6 +190,7 @@ export default function Play() {
   const [editingChar, setEditingChar] = useState(false);
   const [showLineage, setShowLineage] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const [avatarLightbox, setAvatarLightbox] = useState(false);
   const [avatarPrompt, setAvatarPrompt] = useState("");
   const [generatingAvatar, setGeneratingAvatar] = useState(false);
 
@@ -282,22 +283,79 @@ export default function Play() {
               <>
                 {/* Avatar + Name */}
                 <div className="flex items-start gap-3 mt-2">
-                  <button
-                    onClick={() => setShowAvatarDialog(true)}
-                    className="relative flex-shrink-0 group"
-                    title="Generate avatar"
-                  >
+                  <div className="relative flex-shrink-0 group">
+                    {/* Portrait — click to generate when no avatar */}
                     {character.avatarUrl ? (
-                      <img src={character.avatarUrl} alt="Avatar" className="w-16 h-16 rounded-lg object-cover border border-border group-hover:border-primary/50 transition-colors" />
+                      <img
+                        src={character.avatarUrl}
+                        alt="Operator portrait"
+                        className="w-16 h-16 rounded-lg object-cover border border-border transition-colors"
+                      />
                     ) : (
-                      <div className="w-16 h-16 rounded-lg border border-dashed border-border bg-background flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                      <button
+                        onClick={() => setShowAvatarDialog(true)}
+                        className="w-16 h-16 rounded-lg border border-dashed border-border bg-background flex items-center justify-center hover:border-primary/50 transition-colors"
+                        title="Generate portrait"
+                      >
                         <Sparkles className="w-5 h-5 text-muted-foreground/40 group-hover:text-primary/60" />
-                      </div>
+                      </button>
                     )}
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Sparkles className="w-3 h-3 text-primary" />
+
+                    {/* Zoom button — shown when portrait exists */}
+                    {character.avatarUrl && (
+                      <button
+                        onClick={() => setAvatarLightbox(true)}
+                        className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center shadow hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                        title="View full portrait"
+                      >
+                        <ZoomIn className="w-3 h-3 text-primary" />
+                      </button>
+                    )}
+
+                    {/* Sparkles re-generate hint when portrait exists */}
+                    {character.avatarUrl && (
+                      <button
+                        onClick={() => setShowAvatarDialog(true)}
+                        className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10 hover:border-primary/50"
+                        title="Re-generate portrait"
+                      >
+                        <Sparkles className="w-3 h-3 text-primary" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Portrait Lightbox */}
+                  {avatarLightbox && character.avatarUrl && (
+                    <div
+                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                      onClick={() => setAvatarLightbox(false)}
+                    >
+                      <div
+                        className="relative max-w-sm w-full mx-6"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <img
+                          src={character.avatarUrl}
+                          alt="Operator portrait"
+                          className="w-full rounded-xl border border-border/60 shadow-2xl"
+                        />
+                        <div className="mt-3 text-center">
+                          <p className="text-sm font-display font-semibold text-foreground">{character.name}</p>
+                          {character.callsign && (
+                            <p className="text-xs font-mono text-primary tracking-widest mt-0.5">{character.callsign}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-0.5">{character.jobTitle}</p>
+                        </div>
+                        <button
+                          onClick={() => setAvatarLightbox(false)}
+                          className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center shadow-md hover:bg-destructive/10 hover:border-destructive/40 transition-colors"
+                          title="Close"
+                        >
+                          <X className="w-3.5 h-3.5 text-muted-foreground" />
+                        </button>
+                      </div>
                     </div>
-                  </button>
+                  )}
                   <div className="min-w-0 flex-1">
                     <h2 className="text-xl font-display font-bold text-foreground leading-tight">{character.name}</h2>
                     {character.callsign && (
