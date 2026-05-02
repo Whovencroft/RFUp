@@ -246,3 +246,8 @@
 - [x] DB: turnStartedAt column on aiSessions — written on every turn advance, used for accurate 24h detection
 - [x] DB: lastTimeoutAlertUserId column on aiSessions — dedup: only one alert per player per stalled turn; reset to null on turn advance
 - [x] Backend: all three turn-advance paths write turnStartedAt + reset lastTimeoutAlertUserId to null
+
+## Bug: Turn Timeout Scheduled Task Spamming
+- [x] Change scheduled task from hourly to once-daily (run at 9am)
+- [x] Batch all timeout alerts into a single notifyOwner call per run (not one per stalled player)
+- [x] Removed unused imports from the endpoint (aiMessages, and, eq, desc)
