@@ -404,54 +404,54 @@ export default function GmPanel() {
 
       {/* Tabs */}
       <Tabs defaultValue="personnel" className="w-full">
-        <TabsList className="bg-muted/30 border border-border mb-6 h-10">
-          <TabsTrigger value="incidents" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+        <TabsList className="bg-muted/30 border border-border mb-6 h-auto flex-wrap gap-y-1 py-1">
+          <TabsTrigger value="incidents" className="gap-1.5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <AlertTriangle className="w-3.5 h-3.5" />
             Incidents
             {incidents && (
               <span className="ml-1 text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
-                {incidents.filter((i) => i.isActive).length} active
+                {incidents.filter((i) => i.isActive).length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="operators" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+          <TabsTrigger value="operators" className="gap-1.5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <Shield className="w-3.5 h-3.5" />
-            Operator Files
+            Operators
             {sheets && (
               <span className="ml-1 text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
                 {sheets.length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="session-log" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+          <TabsTrigger value="session-log" className="gap-1.5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <ScrollText className="w-3.5 h-3.5" />
             Session Log
           </TabsTrigger>
-          <TabsTrigger value="personnel" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+          <TabsTrigger value="personnel" className="gap-1.5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <Users className="w-3.5 h-3.5" />
             Personnel
             {userList && userList.filter((u) => u.role === "admin").length > 0 && (
               <span className="ml-1 text-xs font-mono bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30">
-                {userList.filter((u) => u.role === "admin").length} supervisors
+                {userList.filter((u) => u.role === "admin").length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="scheduler" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+          <TabsTrigger value="scheduler" className="gap-1.5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <Calendar className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Scheduler</span>
+            Scheduler
           </TabsTrigger>
-          <TabsTrigger value="ai-sessions" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+          <TabsTrigger value="ai-sessions" className="gap-1.5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <Bot className="w-3.5 h-3.5" />
-            AI Sessions
+            Sessions
             {aiSessions && aiSessions.filter((s) => s.status === "active").length > 0 && (
               <span className="ml-1 text-xs font-mono bg-primary/20 text-primary px-1.5 py-0.5 rounded border border-primary/30">
-                {aiSessions.filter((s) => s.status === "active").length} active
+                {aiSessions.filter((s) => s.status === "active").length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground relative">
+          <TabsTrigger value="notifications" className="gap-1.5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
             <Bell className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Notifications</span>
+            Notifications
             {unreadCount > 0 && (
               <span className="ml-1 text-xs font-mono bg-destructive/80 text-destructive-foreground px-1.5 py-0.5 rounded border border-destructive/40">
                 {unreadCount}
