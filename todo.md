@@ -251,3 +251,17 @@
 - [x] Change scheduled task from hourly to once-daily (run at 9am)
 - [x] Batch all timeout alerts into a single notifyOwner call per run (not one per stalled player)
 - [x] Removed unused imports from the endpoint (aiMessages, and, eq, desc)
+
+## Feature: Supervisor Notifications Feed
+- [x] DB: supervisorNotifications table (id, sessionId, sessionTitle, supervisorUserId, type, playerName, message, isRead, createdAt)
+- [x] Backend: addSupervisorNotification helper in db.ts
+- [x] Backend: supervisorNotifications.list procedure — returns unread + recent read notifications for the current supervisor's sessions
+- [x] Backend: supervisorNotifications.markRead procedure — mark one or all as read
+- [x] Backend: write "player_acted" notification when a player submits an action in submitAction
+- [x] Backend: write "turn_waiting" notification when turn advances to next player (after AI/Supervisor responds)
+- [x] Backend: write "player_inactive" notification from the scheduled check-turn-timeouts endpoint instead of calling notifyOwner
+- [x] Backend: write "player_kicked" and "turn_skipped" notifications in kickPlayer and skipTurn procedures
+- [x] Frontend: GM Panel — add Notifications tab with unread badge count
+- [x] Frontend: Notifications tab — live feed (poll every 30s), with type icons and relative timestamps
+- [x] Frontend: Notifications tab — Mark all as read button + click-to-read on individual notifications
+- [x] Frontend: Remove notifyOwner calls from turn-timeout endpoint (replaced by in-app notifications)

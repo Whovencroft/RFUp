@@ -180,3 +180,25 @@ export const commendations = mysqlTable("commendations", {
 
 export type Commendation = typeof commendations.$inferSelect;
 export type InsertCommendation = typeof commendations.$inferInsert;
+
+// Supervisor Notifications: in-app feed for shift supervisors
+export const supervisorNotifications = mysqlTable("supervisorNotifications", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  sessionTitle: varchar("sessionTitle", { length: 256 }).notNull(),
+  supervisorUserId: int("supervisorUserId").notNull(),
+  type: mysqlEnum("type", [
+    "player_acted",
+    "turn_waiting",
+    "player_inactive",
+    "turn_skipped",
+    "player_kicked",
+  ]).notNull(),
+  playerName: varchar("playerName", { length: 128 }).notNull(),
+  message: text("message").notNull(),
+  isRead: boolean("isRead").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SupervisorNotification = typeof supervisorNotifications.$inferSelect;
+export type InsertSupervisorNotification = typeof supervisorNotifications.$inferInsert;

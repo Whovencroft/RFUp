@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,17 @@ import {
   Bot,
   ChevronRight,
   Award,
+  Bell,
+  BellOff,
+  UserCheck,
+  UserX,
+  Clock,
+  Activity,
+  CheckCheck,
+  Calendar,
+  RefreshCw,
+  History,
+  ChevronDown,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,7 +54,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, RefreshCw, History, ChevronDown } from "lucide-react";
 import { useState as useLocalState } from "react";
 
 // ── Operator File Card (expandable, shows session history) ────────────────
@@ -250,6 +260,22 @@ export default function GmPanel() {
   const { data: aiSessions, refetch: refetchAiSessions } = trpc.aiGm.listSessions.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
   });
+
+  // ── Supervisor Notifications ──────────────────────────────────────────────
+  const { data: notifications, refetch: refetchNotifications } = trpc.supervisorNotifications.list.useQuery(
+    undefined,
+    {
+      enabled: isAuthenticated && user?.role === "admin",
+      refetchInterval: 30000,
+    }
+  );
+  const unreadCount = (notifications ?? []).filter((n) => !n.isRead).length;
+
+  const markNotificationsRead = trpc.supervisorNotifications.markRead.useMutation({
+    onSuccess: () => {
+      utils.supervisorNotifications.list.invalidate();
+    },
+  });
   const { data: allUsers } = trpc.gm.listUsers.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
   });
@@ -420,6 +446,15 @@ export default function GmPanel() {
             {aiSessions && aiSessions.filter((s) => s.status === "active").length > 0 && (
               <span className="ml-1 text-xs font-mono bg-primary/20 text-primary px-1.5 py-0.5 rounded border border-primary/30">
                 {aiSessions.filter((s) => s.status === "active").length} active
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground relative">
+            <Bell className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Notifications</span>
+            {unreadCount > 0 && (
+              <span className="ml-1 text-xs font-mono bg-destructive/80 text-destructive-foreground px-1.5 py-0.5 rounded border border-destructive/40">
+                {unreadCount}
               </span>
             )}
           </TabsTrigger>
@@ -951,6 +986,154 @@ export default function GmPanel() {
                 ))
               )}
             </div>
+          </div>
+        </TabsContent>
+
+        {/* ── Notifications Tab ── */}
+        <TabsContent value="notifications" className="mt-0">
+          <div className="space-y-4">
+            {/* Header row */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-mono text-muted-foreground tracking-widest mb-0.5">SUPERVISOR FEED</p>
+                <p className="text-sm text-muted-foreground">
+                  Player activity across your sessions — auto-refreshes every 30 seconds.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => refetchNotifications()}
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Refresh
+                </Button>
+                {unreadCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-3 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                    disabled={markNotificationsRead.isPending}
+                    onClick={() => {
+                      const unreadIds = (notifications ?? [])
+                        .filter((n) => !n.isRead)
+                        .map((n) => n.id);
+                      if (unreadIds.length > 0) markNotificationsRead.mutate({ ids: unreadIds });
+                    }}
+                  >
+                    <CheckCheck className="w-3 h-3" />
+                    Mark all read
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Feed */}
+            {!notifications || notifications.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border p-12 text-center">
+                <BellOff className="w-7 h-7 text-muted-foreground mx-auto mb-3 opacity-40" />
+                <p className="text-sm text-muted-foreground">No notifications yet.</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  Activity from your sessions will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {notifications.map((notif) => {
+                  const typeConfig: Record<string, { icon: React.ReactNode; label: string; color: string; bg: string }> = {
+                    player_acted: {
+                      icon: <UserCheck className="w-4 h-4" />,
+                      label: "ACTED",
+                      color: "text-primary",
+                      bg: "bg-primary/10 border-primary/20",
+                    },
+                    turn_waiting: {
+                      icon: <Clock className="w-4 h-4" />,
+                      label: "WAITING",
+                      color: "text-amber-400",
+                      bg: "bg-amber-500/10 border-amber-500/20",
+                    },
+                    turn_skipped: {
+                      icon: <Activity className="w-4 h-4" />,
+                      label: "SKIPPED",
+                      color: "text-muted-foreground",
+                      bg: "bg-muted/20 border-border",
+                    },
+                    player_kicked: {
+                      icon: <UserX className="w-4 h-4" />,
+                      label: "REMOVED",
+                      color: "text-destructive",
+                      bg: "bg-destructive/10 border-destructive/20",
+                    },
+                    player_inactive: {
+                      icon: <Clock className="w-4 h-4" />,
+                      label: "INACTIVE",
+                      color: "text-amber-400",
+                      bg: "bg-amber-500/10 border-amber-500/20",
+                    },
+                  };
+                  const cfg = typeConfig[notif.type] ?? {
+                    icon: <Bell className="w-4 h-4" />,
+                    label: notif.type.toUpperCase(),
+                    color: "text-muted-foreground",
+                    bg: "bg-muted/20 border-border",
+                  };
+                  const createdAt = notif.createdAt instanceof Date ? notif.createdAt : new Date(notif.createdAt);
+                  const relativeTime = (() => {
+                    const diffMs = Date.now() - createdAt.getTime();
+                    const diffMins = Math.floor(diffMs / 60000);
+                    if (diffMins < 1) return "just now";
+                    if (diffMins < 60) return `${diffMins}m ago`;
+                    const diffHrs = Math.floor(diffMins / 60);
+                    if (diffHrs < 24) return `${diffHrs}h ago`;
+                    return `${Math.floor(diffHrs / 24)}d ago`;
+                  })();
+
+                  return (
+                    <div
+                      key={notif.id}
+                      className={cn(
+                        "flex items-start gap-3 p-3.5 rounded-lg border transition-colors cursor-pointer",
+                        notif.isRead
+                          ? "border-border bg-card opacity-60 hover:opacity-80"
+                          : `${cfg.bg} hover:opacity-90`
+                      )}
+                      onClick={() => {
+                        if (!notif.isRead) markNotificationsRead.mutate({ ids: [notif.id] });
+                      }}
+                    >
+                      {/* Icon tile */}
+                      <div className={cn("shrink-0 w-8 h-8 rounded-md flex items-center justify-center border", cfg.bg, cfg.color)}>
+                        {cfg.icon}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className={cn("text-[10px] font-mono tracking-widest font-semibold", cfg.color)}>
+                            {cfg.label}
+                          </span>
+                          <span className="text-[10px] font-mono text-muted-foreground/60 truncate">
+                            {notif.sessionTitle}
+                          </span>
+                          {!notif.isRead && (
+                            <span className="ml-auto shrink-0 w-1.5 h-1.5 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <p className="text-sm text-foreground leading-snug">{notif.message}</p>
+                      </div>
+
+                      {/* Timestamp */}
+                      <span className="shrink-0 text-[10px] font-mono text-muted-foreground/60 mt-0.5">
+                        {relativeTime}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

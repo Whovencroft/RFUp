@@ -1,4 +1,4 @@
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -21,6 +21,8 @@ import {
   InsertShiftSchedule,
   commendations,
   InsertCommendation,
+  supervisorNotifications,
+  InsertSupervisorNotification,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -597,4 +599,44 @@ export async function getSessionXpSummary(sessionId: number) {
     }
   }
   return Array.from(map.values());
+}
+
+// ── Supervisor Notifications ───────────────────────────────────────────────
+
+export async function addSupervisorNotification(data: InsertSupervisorNotification) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(supervisorNotifications).values(data);
+}
+
+export async function listSupervisorNotifications(supervisorUserId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(supervisorNotifications)
+    .where(eq(supervisorNotifications.supervisorUserId, supervisorUserId))
+    .orderBy(desc(supervisorNotifications.createdAt))
+    .limit(100);
+}
+
+export async function markSupervisorNotificationsRead(supervisorUserId: number, ids?: number[]) {
+  const db = await getDb();
+  if (!db) return;
+  if (ids && ids.length > 0) {
+    await db
+      .update(supervisorNotifications)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(supervisorNotifications.supervisorUserId, supervisorUserId),
+          inArray(supervisorNotifications.id, ids)
+        )
+      );
+  } else {
+    await db
+      .update(supervisorNotifications)
+      .set({ isRead: true })
+      .where(eq(supervisorNotifications.supervisorUserId, supervisorUserId));
+  }
 }

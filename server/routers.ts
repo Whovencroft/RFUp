@@ -45,6 +45,9 @@ import {
   getCommendationsByCharacterId,
   getCommendationsBySessionId,
   getSessionXpSummary,
+  addSupervisorNotification,
+  listSupervisorNotifications,
+  markSupervisorNotificationsRead,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { notifyOwner } from "./_core/notification";
@@ -603,11 +606,39 @@ Keep it under 200 words. Write in second person ("you"). Dry, grounded tone.`;
           rollData,
         });
 
+        // Notify supervisor: player acted
+        const supervisorId = (session as any).createdBy as number | undefined;
+        if (supervisorId) {
+          await addSupervisorNotification({
+            sessionId: input.sessionId,
+            sessionTitle: session.title,
+            supervisorUserId: supervisorId,
+            type: "player_acted",
+            playerName: char.name,
+            message: `${char.name} submitted their action for "${session.title}".`,
+          }).catch(() => {/* non-critical */});
+        }
+
         // Advance turn order
         const playerOrder: number[] = JSON.parse(session.playerOrder || "[]");
         const currentIdx = playerOrder.indexOf(ctx.user.id);
         const nextUserId = playerOrder[(currentIdx + 1) % playerOrder.length];
         await updateAiSession(input.sessionId, { currentTurnUserId: nextUserId, turnStartedAt: new Date(), lastTimeoutAlertUserId: null });
+
+        // Notify supervisor: turn is now waiting on next player
+        if (supervisorId && nextUserId !== ctx.user.id) {
+          const nextChar = await getCharacterByUserId(nextUserId);
+          if (nextChar) {
+            await addSupervisorNotification({
+              sessionId: input.sessionId,
+              sessionTitle: session.title,
+              supervisorUserId: supervisorId,
+              type: "turn_waiting",
+              playerName: nextChar.name,
+              message: `Waiting on ${nextChar.name} to take their turn in "${session.title}".`,
+            }).catch(() => {/* non-critical */});
+          }
+        }
 
         // In supervisor-led mode, the Supervisor writes the response manually — no AI call
         if ((session as any).gmMode === "supervisor") {
@@ -955,6 +986,15 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           authorName: "System",
           content: `⏭ **${skippedName}'s turn was skipped** by the Shift Supervisor (no response within 24 hours). Turn passed to next operator.`,
         });
+        // In-app notification for the supervisor's feed
+        await addSupervisorNotification({
+          sessionId: input.sessionId,
+          sessionTitle: session.title,
+          supervisorUserId: ctx.user.id,
+          type: "turn_skipped",
+          playerName: skippedName,
+          message: `${skippedName}'s turn was skipped in "${session.title}".`,
+        }).catch(() => {});
         return { success: true, nextTurnUserId: nextUserId };
       }),
 
@@ -994,17 +1034,16 @@ Context summary: ${session.contextSummary ?? "Session just started."}`;
           authorName: "System",
           content: `🚫 **${kickedName} has been removed from the session** by the Shift Supervisor.${reason}`,
         });
-        // Send coaching-style notification to the project owner (Shift Supervisor)
-        const supervisorName = ctx.user.name ?? "Shift Supervisor";
+        // In-app notification for the supervisor's feed
         const sessionTitle = session.title ?? `Session #${input.sessionId}`;
         const coachingReason = input.reason?.trim() || "no response within the expected window";
-        await notifyOwner({
-          title: `Operator ${kickedName} removed from "${sessionTitle}"`,
-          content: `${supervisorName} removed ${kickedName} from the session "${sessionTitle}".
-
-Reason noted: ${coachingReason}
-
-Coaching note for ${kickedName}: Every shift is a learning opportunity. Missing a turn happens — what matters is getting back in the rotation. Review the session debrief when it's published, reflect on what you would have done, and reach out to your Shift Supervisor if you have questions. We want you back on the floor.`,
+        await addSupervisorNotification({
+          sessionId: input.sessionId,
+          sessionTitle,
+          supervisorUserId: ctx.user.id,
+          type: "player_kicked",
+          playerName: kickedName,
+          message: `${kickedName} was removed from "${sessionTitle}". Reason: ${coachingReason}`,
         }).catch(() => {});
         return { success: true, newPlayerOrder: newOrder, nextTurnUserId };
       }),
@@ -1183,6 +1222,24 @@ Coaching note for ${kickedName}: Every shift is a learning opportunity. Missing 
       .input(z.object({ sessionId: z.number().int() }))
       .query(async ({ input }) => {
         return getCommendationsBySessionId(input.sessionId);
+      }),
+  }),
+
+  // ── Supervisor Notifications ───────────────────────────────────────────────
+  supervisorNotifications: router({
+    // List notifications for the current supervisor (most recent 100)
+    list: adminProcedure.query(async ({ ctx }) => {
+      return listSupervisorNotifications(ctx.user.id);
+    }),
+
+    // Mark one or all notifications as read
+    markRead: adminProcedure
+      .input(z.object({
+        ids: z.array(z.number().int()).optional(), // omit to mark all
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await markSupervisorNotificationsRead(ctx.user.id, input.ids);
+        return { success: true };
       }),
   }),
 
