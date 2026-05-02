@@ -257,6 +257,9 @@
 - [x] Frontend: Play page — lightbox overlay shows full-size portrait with name, callsign, job title and close button
 - [x] Frontend: Play page — Sparkles re-generate hint on hover (top-right corner) when portrait exists
 
+## Feature: ID Card Portrait Format
+- [x] Backend: generateAvatar prompt updated to enforce ID card format — operator photo in upper two-thirds, footer bar with name and job title in white monospace font, retro sci-fi institutional badge style
+
 ## Feature: Supervisor Notifications Feed
 - [x] DB: supervisorNotifications table (id, sessionId, sessionTitle, supervisorUserId, type, playerName, message, isRead, createdAt)
 - [x] Backend: addSupervisorNotification helper in db.ts

@@ -142,7 +142,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const char = await getCharacterByUserId(ctx.user.id);
         if (!char) throw new TRPCError({ code: "NOT_FOUND" });
-        const fullPrompt = `Facility 404 data center security operator ID badge portrait. ${input.prompt}. Style: retro sci-fi badge photo, slightly worn, dark background, professional but slightly absurd. Square format.`;
+        const fullPrompt = `Facility 404 security ID card for operator "${char.name}", position: "${char.jobTitle}". The image must be formatted as a physical ID badge/card: portrait photo of the operator occupying the upper two-thirds, with a dark institutional footer bar at the bottom clearly showing the text "${char.name}" on one line and "${char.jobTitle}" on the line below in white monospace font. ${input.prompt}. Style: retro sci-fi institutional ID card, slightly worn laminated badge, dark teal and charcoal color scheme, professional but slightly absurd, high detail. Portrait aspect ratio.`;
         const { url } = await generateImage({ prompt: fullPrompt });
         await updateCharacter(char.id, { avatarUrl: url, avatarPrompt: input.prompt });
         return { avatarUrl: url };
