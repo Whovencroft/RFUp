@@ -1,3 +1,4 @@
+import { randomInt } from "crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
@@ -64,7 +65,7 @@ const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function rollDice(count: number): number[] {
-  return Array.from({ length: count }, () => Math.floor(Math.random() * 6) + 1);
+  return Array.from({ length: count }, () => randomInt(1, 7));
 }
 
 export const appRouter = router({

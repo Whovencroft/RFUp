@@ -257,6 +257,13 @@
 - [x] Frontend: Play page — lightbox overlay shows full-size portrait with name, callsign, job title and close button
 - [x] Frontend: Play page — Sparkles re-generate hint on hover (top-right corner) when portrait exists
 
+## Improvement: crypto.randomInt for Fair Dice
+- [x] Backend: Replace Math.random() in rollDice() with Node.js crypto.randomInt(1,7) — eliminates modulo bias for cryptographically fair d6 rolls
+
+## Improvement: react-markdown for AI GM Responses
+- [x] Frontend: Install react-markdown + remark-gfm
+- [x] Frontend: AI and GM messages in AiSession rendered as formatted markdown (bold, lists, blockquotes, code, headings) — player messages remain plain text
+
 ## Feature: ID Card Portrait Format
 - [x] Backend: generateAvatar prompt updated to enforce ID card format — operator photo in upper two-thirds, footer bar with name and job title in white monospace font, retro sci-fi institutional badge style
 

@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useTurnNotification } from "@/hooks/useTurnNotification";
 import { useParams, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -1086,7 +1088,7 @@ export default function AiSession() {
                     )}
 
                     <div
-                      className={`rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                      className={`rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
                         isAi
                           ? "bg-card border border-border text-foreground"
                           : isGmMsg
@@ -1094,7 +1096,28 @@ export default function AiSession() {
                           : "bg-primary/10 border border-primary/20 text-foreground"
                       }`}
                     >
-                      {msg.content}
+                      {(isAi || isGmMsg) ? (
+                        <Markdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+                            li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                            strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                            em: ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
+                            blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 italic text-muted-foreground my-2">{children}</blockquote>,
+                            code: ({ children }) => <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">{children}</code>,
+                            h1: ({ children }) => <h1 className="text-base font-bold mb-1">{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-sm font-bold mb-1">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
+                          }}
+                        >
+                          {msg.content}
+                        </Markdown>
+                      ) : (
+                        <span className="whitespace-pre-wrap">{msg.content}</span>
+                      )}
                     </div>
                   </div>
                 </div>
