@@ -1,5 +1,7 @@
 # Roll for Uptime — Self-Hosted Edition
 
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/new?repo=https://github.com/Whovencroft/RFUp&branch=standalone)
+
 A fully self-contained tabletop RPG for security teams. Zero external dependencies. Runs anywhere Node.js runs.
 
 ---
@@ -38,7 +40,19 @@ docker compose up -d
 # The first account you register becomes the admin (Shift Supervisor)
 ```
 
-### Option B — Plain Node.js
+### Option B — Railway (one-click cloud deploy)
+
+1. Click the **Deploy on Railway** button above (or go to [railway.app/new](https://railway.app/new) and point it at the `standalone` branch of this repo).
+2. In the Railway dashboard, set these environment variables:
+   - `JWT_SECRET` — any long random string (required)
+   - `LLM_PROVIDER` / `LLM_API_KEY` / `LLM_MODEL` — optional, enables AI GM
+   - `DATABASE_PATH` — Railway provides persistent volumes; set to `/data/rfu.db`
+3. Click **Deploy**. Railway builds and starts the app automatically.
+4. Open the generated `.railway.app` URL. The first account registered becomes the admin.
+
+> **Tip:** After deploying, go to **Settings → LLM Configuration** in the app to update your AI provider without redeploying.
+
+### Option C — Plain Node.js
 
 ```bash
 # Prerequisites: Node.js 20+

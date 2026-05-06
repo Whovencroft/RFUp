@@ -12,6 +12,7 @@ import Sessions from "./pages/Sessions";
 import Session from "./pages/Session";
 import GmPanel from "./pages/GmPanel";
 import Incidents from "./pages/Incidents";
+import AdminSettings from "./pages/AdminSettings";
 
 function Nav() {
   const { user, isLoading } = useAuth();
@@ -46,7 +47,10 @@ function Nav() {
             <Link to="/incidents" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Incidents</Link>
             <Link to="/operator" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Operator File</Link>
             {user.role === "admin" && (
-              <Link to="/gm" style={{ color: "var(--teal)", fontSize: "0.875rem" }}>Shift Supervisor</Link>
+              <>
+                <Link to="/gm" style={{ color: "var(--teal)", fontSize: "0.875rem" }}>Shift Supervisor</Link>
+                <Link to="/admin/settings" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Settings</Link>
+              </>
             )}
           </>
         )}
@@ -101,6 +105,7 @@ export default function App() {
           <Route path="/sessions/:id" element={<ProtectedRoute><Session /></ProtectedRoute>} />
           <Route path="/incidents" element={<Incidents />} />
           <Route path="/gm" element={<ProtectedRoute adminOnly><GmPanel /></ProtectedRoute>} />
+          <Route path="/admin/settings" element={<ProtectedRoute adminOnly><AdminSettings /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

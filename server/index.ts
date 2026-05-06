@@ -10,6 +10,7 @@ import { createContext } from "./trpc.js";
 import { runMigrations } from "./db/migrate.js";
 import { initSocketIO } from "./realtime.js";
 import { ensureUploadsDir } from "./storage.js";
+import { loadPersistedSettings } from "./routers/admin.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? "3000");
@@ -18,6 +19,7 @@ const isDev = process.env.NODE_ENV !== "production";
 async function main() {
   // Run DB migrations on startup
   await runMigrations();
+  await loadPersistedSettings();
   ensureUploadsDir();
 
   const app = express();

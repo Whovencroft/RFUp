@@ -123,6 +123,11 @@ export async function runMigrations() {
       created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
 
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
     CREATE TABLE IF NOT EXISTS invite_codes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       code TEXT NOT NULL UNIQUE,

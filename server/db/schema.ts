@@ -149,3 +149,10 @@ export const inviteCodes = sqliteTable("invite_codes", {
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
+
+// ── Admin Settings ────────────────────────────────────────────────────────────
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
