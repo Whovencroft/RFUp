@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
+import CssIdCard, { CARD_DESIGNS, CardDesign } from "@/components/CssIdCard";
+import html2canvas from "html2canvas";
 
 // ── Character Creation ─────────────────────────────────────────────────────
 function CharacterCreation({ onCreated }: { onCreated: () => void }) {
@@ -193,6 +195,8 @@ export default function Play() {
   const [avatarLightbox, setAvatarLightbox] = useState(false);
   const [avatarPrompt, setAvatarPrompt] = useState("");
   const [generatingAvatar, setGeneratingAvatar] = useState(false);
+  const [cardDesign, setCardDesign] = useState<CardDesign>("scifi");
+  const [cardExporting, setCardExporting] = useState(false);
 
   const generateAvatarMutation = trpc.character.generateAvatar.useMutation({
     onSuccess: () => {
@@ -284,40 +288,44 @@ export default function Play() {
                 {/* Avatar + Name */}
                 <div className="flex items-start gap-3 mt-2">
                   <div className="relative flex-shrink-0 group">
-                    {/* Portrait — click to generate when no avatar */}
+                    {/* Portrait: CSS ID card (default) or AI image if generated */}
                     {character.avatarUrl ? (
                       <img
                         src={character.avatarUrl}
                         alt="Operator portrait"
-                        className="w-16 h-16 rounded-lg object-cover border border-border transition-colors"
+                        className="w-16 h-16 rounded-lg object-cover border border-border transition-colors cursor-pointer"
+                        onClick={() => setAvatarLightbox(true)}
                       />
                     ) : (
                       <button
-                        onClick={() => setShowAvatarDialog(true)}
-                        className="w-16 h-16 rounded-lg border border-dashed border-border bg-background flex items-center justify-center hover:border-primary/50 transition-colors"
-                        title="Generate portrait"
-                      >
-                        <Sparkles className="w-5 h-5 text-muted-foreground/40 group-hover:text-primary/60" />
-                      </button>
-                    )}
-
-                    {/* Zoom button — shown when portrait exists */}
-                    {character.avatarUrl && (
-                      <button
                         onClick={() => setAvatarLightbox(true)}
-                        className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center shadow hover:bg-primary/10 hover:border-primary/50 transition-colors"
-                        title="View full portrait"
+                        className="block"
+                        title="View ID card"
                       >
-                        <ZoomIn className="w-3 h-3 text-primary" />
+                        <CssIdCard
+                          name={character.name}
+                          callsign={character.callsign}
+                          jobTitle={character.jobTitle}
+                          xp={character.xp}
+                          design={cardDesign}
+                          size="small"
+                        />
                       </button>
                     )}
-
-                    {/* Sparkles re-generate hint when portrait exists */}
+                    {/* Zoom button — always shown */}
+                    <button
+                      onClick={() => setAvatarLightbox(true)}
+                      className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center shadow hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                      title="View full ID card"
+                    >
+                      <ZoomIn className="w-3 h-3 text-primary" />
+                    </button>
+                    {/* Sparkles re-generate AI portrait hint */}
                     {character.avatarUrl && (
                       <button
                         onClick={() => setShowAvatarDialog(true)}
                         className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10 hover:border-primary/50"
-                        title="Re-generate portrait"
+                        title="Re-generate AI portrait"
                       >
                         <Sparkles className="w-3 h-3 text-primary" />
                       </button>
@@ -325,34 +333,99 @@ export default function Play() {
                   </div>
 
                   {/* Portrait Lightbox */}
-                  {avatarLightbox && character.avatarUrl && (
+                  {avatarLightbox && (
                     <div
                       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
                       onClick={() => setAvatarLightbox(false)}
                     >
                       <div
-                        className="relative max-w-sm w-full mx-6"
+                        className="relative"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <img
-                          src={character.avatarUrl}
-                          alt="Operator portrait"
-                          className="w-full rounded-xl border border-border/60 shadow-2xl"
-                        />
-                        <div className="mt-3 text-center">
-                          <p className="text-sm font-display font-semibold text-foreground">{character.name}</p>
-                          {character.callsign && (
-                            <p className="text-xs font-mono text-primary tracking-widest mt-0.5">{character.callsign}</p>
+                        {character.avatarUrl ? (
+                          <>
+                            <img
+                              src={character.avatarUrl}
+                              alt="Operator portrait"
+                              className="max-w-sm w-full rounded-xl border border-border/60 shadow-2xl"
+                            />
+                            <div className="mt-3 text-center">
+                              <p className="text-sm font-display font-semibold text-foreground">{character.name}</p>
+                              {character.callsign && (
+                                <p className="text-xs font-mono text-primary tracking-widest mt-0.5">{character.callsign}</p>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-0.5">{character.jobTitle}</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            {/* Card design picker */}
+                            <div className="flex gap-2 mb-3 justify-center flex-wrap">
+                              {CARD_DESIGNS.map((d) => (
+                                <button
+                                  key={d.value}
+                                  onClick={() => setCardDesign(d.value)}
+                                  className={cn(
+                                    "px-2.5 py-1 rounded text-xs border transition-colors",
+                                    cardDesign === d.value
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-card text-muted-foreground border-border hover:border-primary/50"
+                                  )}
+                                >
+                                  {d.label}
+                                </button>
+                              ))}
+                            </div>
+                            <div id="play-id-card-export">
+                              <CssIdCard
+                                name={character.name}
+                                callsign={character.callsign}
+                                jobTitle={character.jobTitle}
+                                xp={character.xp}
+                                design={cardDesign}
+                                size="large"
+                              />
+                            </div>
+                          </>
+                        )}
+                        {/* Action buttons */}
+                        <div className="flex gap-2 absolute -top-9 right-0">
+                          {!character.avatarUrl && (
+                            <>
+                              <button
+                                className="px-2.5 py-1 rounded text-xs bg-card border border-border text-muted-foreground hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                                disabled={cardExporting}
+                                onClick={async () => {
+                                  setCardExporting(true);
+                                  try {
+                                    const el = document.getElementById("play-id-card-export");
+                                    if (!el) return;
+                                    const canvas = await html2canvas(el, { backgroundColor: null, scale: 2 });
+                                    const link = document.createElement("a");
+                                    link.download = `${character.name.replace(/\s+/g, "_")}_ID.png`;
+                                    link.href = canvas.toDataURL("image/png");
+                                    link.click();
+                                  } finally { setCardExporting(false); }
+                                }}
+                              >
+                                {cardExporting ? "Exporting…" : "⬇ Save PNG"}
+                              </button>
+                              <button
+                                className="px-2.5 py-1 rounded text-xs bg-card border border-border text-muted-foreground hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                                onClick={() => { setAvatarLightbox(false); setShowAvatarDialog(true); }}
+                              >
+                                <Sparkles className="w-3 h-3 inline mr-1" />AI Portrait
+                              </button>
+                            </>
                           )}
-                          <p className="text-xs text-muted-foreground mt-0.5">{character.jobTitle}</p>
+                          <button
+                            onClick={() => setAvatarLightbox(false)}
+                            className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center shadow-md hover:bg-destructive/10 hover:border-destructive/40 transition-colors"
+                            title="Close"
+                          >
+                            <X className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setAvatarLightbox(false)}
-                          className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center shadow-md hover:bg-destructive/10 hover:border-destructive/40 transition-colors"
-                          title="Close"
-                        >
-                          <X className="w-3.5 h-3.5 text-muted-foreground" />
-                        </button>
                       </div>
                     </div>
                   )}
