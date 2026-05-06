@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { trpc } from "../lib/trpc";
-import CssIdCard from "../components/CssIdCard";
+import CssIdCard, { CARD_DESIGNS, CardDesign } from "../components/CssIdCard";
+import html2canvas from "html2canvas";
 
 export default function OperatorFile() {
   const { data: char, isLoading, refetch } = trpc.character.get.useQuery();
@@ -11,6 +12,8 @@ export default function OperatorFile() {
   const [error, setError] = useState("");
   // "css" = CSS ID card (no API needed), "ai" = AI-generated image
   const [portraitMode, setPortraitMode] = useState<"css" | "ai">("css");
+  const [cardDesign, setCardDesign] = useState<CardDesign>("scifi");
+  const [exporting, setExporting] = useState(false);
 
   const createChar = trpc.character.create.useMutation({
     onSuccess: () => { refetch(); },
@@ -89,6 +92,19 @@ export default function OperatorFile() {
             </button>
           </div>
 
+          {/* Card design selector */}
+          {portraitMode === "css" && (
+            <select
+              value={cardDesign}
+              onChange={(e) => setCardDesign(e.target.value as CardDesign)}
+              style={{ fontSize: "0.7rem", padding: "0.2rem 0.4rem", background: "var(--bg-card)", color: "var(--text-muted)", border: "1px solid var(--border)", borderRadius: "4px" }}
+            >
+              {CARD_DESIGNS.map((d) => (
+                <option key={d.value} value={d.value}>{d.label}</option>
+              ))}
+            </select>
+          )}
+
           {/* CSS ID Card */}
           {portraitMode === "css" && (
             <CssIdCard
@@ -96,6 +112,7 @@ export default function OperatorFile() {
               callsign={char.callsign}
               jobTitle={char.jobTitle}
               xp={char.xp}
+              design={cardDesign}
               size="small"
               onClick={() => setLightbox(true)}
             />
@@ -264,20 +281,46 @@ export default function OperatorFile() {
           }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{ position: "relative" }}>
-            <CssIdCard
-              name={char.name}
-              callsign={char.callsign}
-              jobTitle={char.jobTitle}
-              xp={char.xp}
-              size="large"
-            />
-            <button
-              onClick={() => setLightbox(false)}
-              className="btn btn-ghost"
-              style={{ position: "absolute", top: "-2.5rem", right: 0, padding: "0.25rem 0.5rem", fontSize: "0.8rem" }}
-            >
-              ✕ Close
-            </button>
+            <div id="id-card-export-target">
+              <CssIdCard
+                name={char.name}
+                callsign={char.callsign}
+                jobTitle={char.jobTitle}
+                xp={char.xp}
+                design={cardDesign}
+                size="large"
+              />
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", position: "absolute", top: "-2.5rem", right: 0 }}>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: "0.25rem 0.6rem", fontSize: "0.8rem" }}
+                disabled={exporting}
+                onClick={async () => {
+                  setExporting(true);
+                  try {
+                    const el = document.getElementById("id-card-export-target");
+                    if (!el) return;
+                    const canvas = await html2canvas(el, { backgroundColor: null, scale: 2 });
+                    const link = document.createElement("a");
+                    link.download = `${char.name.replace(/\s+/g, "_")}_ID.png`;
+                    link.href = canvas.toDataURL("image/png");
+                    link.click();
+                  } finally {
+                    setExporting(false);
+                  }
+                }}
+              >
+                {exporting ? "Exporting…" : "⬇ Save PNG"}
+              </button>
+              <button
+                onClick={() => setLightbox(false)}
+                className="btn btn-ghost"
+                style={{ padding: "0.25rem 0.5rem", fontSize: "0.8rem" }}
+              >
+                ✕ Close
+              </button>
+            </div>
           </div>
         </div>
       )}
