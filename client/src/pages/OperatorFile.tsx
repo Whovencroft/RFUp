@@ -1,19 +1,19 @@
 import React, { useState } from "react";
 import { trpc } from "../lib/trpc";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import CssIdCard from "../components/CssIdCard";
 
 export default function OperatorFile() {
   const { data: char, isLoading, refetch } = trpc.character.get.useQuery();
-  const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", callsign: "", jobTitle: "Security Analyst", bio: "" });
   const [avatarDesc, setAvatarDesc] = useState("");
   const [showAvatarForm, setShowAvatarForm] = useState(false);
   const [lightbox, setLightbox] = useState(false);
   const [error, setError] = useState("");
+  // "css" = CSS ID card (no API needed), "ai" = AI-generated image
+  const [portraitMode, setPortraitMode] = useState<"css" | "ai">("css");
 
   const createChar = trpc.character.create.useMutation({
-    onSuccess: () => { refetch(); setCreating(false); },
+    onSuccess: () => { refetch(); },
     onError: (err) => setError(err.message),
   });
 
@@ -67,40 +67,77 @@ export default function OperatorFile() {
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem" }}>
       <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start", flexWrap: "wrap" }}>
-        {/* Portrait */}
-        <div style={{ flexShrink: 0 }}>
-          {char.avatarUrl ? (
-            <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setLightbox(true)}>
-              <img
-                src={char.avatarUrl}
-                alt="Operator portrait"
-                style={{ width: "160px", height: "160px", objectFit: "cover", borderRadius: "8px", border: "2px solid var(--border)" }}
-              />
-              <div style={{
-                position: "absolute", bottom: "6px", right: "6px",
-                background: "rgba(0,0,0,0.7)", borderRadius: "4px", padding: "2px 6px",
-                fontSize: "0.7rem", color: "var(--teal)", fontFamily: "var(--font-mono)"
-              }}>
-                + ZOOM
-              </div>
-            </div>
-          ) : (
-            <div style={{
-              width: "160px", height: "160px", borderRadius: "8px",
-              border: "2px dashed var(--border)", display: "flex", alignItems: "center",
-              justifyContent: "center", color: "var(--text-dim)", fontSize: "0.8rem", textAlign: "center",
-              padding: "1rem"
-            }}>
-              No portrait
-            </div>
+
+        {/* Portrait column */}
+        <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+
+          {/* Mode toggle */}
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            <button
+              className={`btn ${portraitMode === "css" ? "btn-primary" : "btn-ghost"}`}
+              style={{ flex: 1, fontSize: "0.7rem", padding: "0.25rem 0.5rem" }}
+              onClick={() => setPortraitMode("css")}
+            >
+              ID Card
+            </button>
+            <button
+              className={`btn ${portraitMode === "ai" ? "btn-primary" : "btn-ghost"}`}
+              style={{ flex: 1, fontSize: "0.7rem", padding: "0.25rem 0.5rem" }}
+              onClick={() => setPortraitMode("ai")}
+            >
+              AI Image
+            </button>
+          </div>
+
+          {/* CSS ID Card */}
+          {portraitMode === "css" && (
+            <CssIdCard
+              name={char.name}
+              callsign={char.callsign}
+              jobTitle={char.jobTitle}
+              xp={char.xp}
+              size="small"
+              onClick={() => setLightbox(true)}
+            />
           )}
-          <button
-            className="btn btn-ghost"
-            style={{ width: "160px", marginTop: "0.5rem", fontSize: "0.8rem", padding: "0.35rem" }}
-            onClick={() => setShowAvatarForm(!showAvatarForm)}
-          >
-            {char.avatarUrl ? "Re-generate" : "Generate Portrait"}
-          </button>
+
+          {/* AI portrait */}
+          {portraitMode === "ai" && (
+            <>
+              {char.avatarUrl ? (
+                <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setLightbox(true)}>
+                  <img
+                    src={char.avatarUrl}
+                    alt="Operator portrait"
+                    style={{ width: "160px", height: "160px", objectFit: "cover", borderRadius: "8px", border: "2px solid var(--border)" }}
+                  />
+                  <div style={{
+                    position: "absolute", bottom: "6px", right: "6px",
+                    background: "rgba(0,0,0,0.7)", borderRadius: "4px", padding: "2px 6px",
+                    fontSize: "0.7rem", color: "var(--teal)", fontFamily: "var(--font-mono)"
+                  }}>
+                    + ZOOM
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  width: "160px", height: "160px", borderRadius: "8px",
+                  border: "2px dashed var(--border)", display: "flex", alignItems: "center",
+                  justifyContent: "center", color: "var(--text-dim)", fontSize: "0.8rem", textAlign: "center",
+                  padding: "1rem"
+                }}>
+                  No portrait
+                </div>
+              )}
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: "0.8rem", padding: "0.35rem" }}
+                onClick={() => setShowAvatarForm(!showAvatarForm)}
+              >
+                {char.avatarUrl ? "Re-generate" : "Generate Portrait"}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Info */}
@@ -128,10 +165,10 @@ export default function OperatorFile() {
         </div>
       </div>
 
-      {/* Avatar generation form */}
-      {showAvatarForm && (
+      {/* AI portrait generation form */}
+      {showAvatarForm && portraitMode === "ai" && (
         <div className="card" style={{ marginTop: "1rem" }}>
-          <h4 style={{ margin: "0 0 0.75rem" }}>Generate Portrait</h4>
+          <h4 style={{ margin: "0 0 0.75rem" }}>Generate AI Portrait</h4>
           <div className="form-group">
             <label>Appearance description (optional)</label>
             <textarea
@@ -217,12 +254,40 @@ export default function OperatorFile() {
         )}
       </div>
 
-      {/* Portrait lightbox */}
-      {lightbox && char.avatarUrl && (
+      {/* Lightbox — CSS card */}
+      {lightbox && portraitMode === "css" && (
         <div
           onClick={() => setLightbox(false)}
           style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000,
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer"
+          }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ position: "relative" }}>
+            <CssIdCard
+              name={char.name}
+              callsign={char.callsign}
+              jobTitle={char.jobTitle}
+              xp={char.xp}
+              size="large"
+            />
+            <button
+              onClick={() => setLightbox(false)}
+              className="btn btn-ghost"
+              style={{ position: "absolute", top: "-2.5rem", right: 0, padding: "0.25rem 0.5rem", fontSize: "0.8rem" }}
+            >
+              ✕ Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox — AI image */}
+      {lightbox && portraitMode === "ai" && char.avatarUrl && (
+        <div
+          onClick={() => setLightbox(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 1000,
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer"
           }}
         >

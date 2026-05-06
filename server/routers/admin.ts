@@ -172,4 +172,25 @@ export const adminRouter = router({
       return { success: false, message: String(err) };
     }
   }),
+
+  // Admin: list available Ollama models from the configured base URL
+  listOllamaModels: adminProcedure.mutation(async () => {
+    const config = getLLMConfig();
+    const baseUrl = config.baseUrl ?? process.env.LLM_BASE_URL ?? "http://localhost:11434";
+    // Normalise: strip /v1 suffix if present — Ollama's native API is at /api/tags
+    const ollamaBase = baseUrl.replace(/\/v1\/?$/, "");
+    try {
+      const res = await fetch(`${ollamaBase}/api/tags`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) {
+        return { success: false, models: [] as string[], error: `Ollama returned ${res.status}` };
+      }
+      const data = await res.json() as { models: Array<{ name: string }> };
+      const models = (data.models ?? []).map((m) => m.name).sort();
+      return { success: true, models, error: null };
+    } catch (err) {
+      return { success: false, models: [] as string[], error: `Could not reach Ollama at ${ollamaBase}` };
+    }
+  }),
 });

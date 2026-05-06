@@ -76,6 +76,18 @@ export default function AdminSettings() {
   const [llmSaved, setLlmSaved] = useState(false);
   const [imgSaved, setImgSaved] = useState(false);
   const [secSaved, setSecSaved] = useState(false);
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [ollamaError, setOllamaError] = useState<string | null>(null);
+  const listOllamaModels = trpc.admin.listOllamaModels.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        setOllamaModels(data.models);
+        setOllamaError(null);
+      } else {
+        setOllamaError(data.error ?? "Could not fetch models");
+      }
+    },
+  });
 
   // Populate form from current settings
   useEffect(() => {
@@ -173,15 +185,62 @@ export default function AdminSettings() {
 
           <div className="form-group">
             <label>Model</label>
-            <input
-              value={llmModel}
-              onChange={(e) => setLlmModel(e.target.value)}
-              placeholder={DEFAULT_MODELS[llmProvider] || "model name"}
-            />
-            <div style={{ fontSize: "0.75rem", color: "var(--text-dim)", marginTop: "0.25rem" }}>
+            {/* Ollama: show a dropdown populated from the server, with a fetch button */}
+            {llmProvider === "ollama" && ollamaModels.length > 0 ? (
+              <>
+                <select
+                  value={llmModel}
+                  onChange={(e) => setLlmModel(e.target.value)}
+                  style={{ marginBottom: "0.4rem" }}
+                >
+                  <option value="">— select a model —</option>
+                  {ollamaModels.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}
+                    onClick={() => { setOllamaModels([]); setLlmModel(""); }}
+                  >
+                    ✕ Clear
+                  </button>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
+                    {ollamaModels.length} model{ollamaModels.length !== 1 ? "s" : ""} found
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <input
+                  value={llmModel}
+                  onChange={(e) => setLlmModel(e.target.value)}
+                  placeholder={DEFAULT_MODELS[llmProvider] || "model name"}
+                />
+                {llmProvider === "ollama" && (
+                  <div style={{ marginTop: "0.4rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}
+                      disabled={listOllamaModels.isPending}
+                      onClick={() => { setOllamaError(null); listOllamaModels.mutate(); }}
+                    >
+                      {listOllamaModels.isPending ? "Fetching…" : "⟳ Fetch available models"}
+                    </button>
+                    {ollamaError && (
+                      <span style={{ fontSize: "0.75rem", color: "var(--red, #ef4444)" }}>{ollamaError}</span>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+            <div style={{ fontSize: "0.75rem", color: "var(--text-dim)", marginTop: "0.35rem" }}>
               {llmProvider === "openai" && "Recommended: gpt-4o-mini (fast/cheap), gpt-4o (best quality)"}
               {llmProvider === "anthropic" && "Recommended: claude-3-haiku-20240307 (fast), claude-3-5-sonnet-20241022 (best)"}
-              {llmProvider === "ollama" && "Must match a model you have pulled locally (e.g. llama3, mistral, gemma3:4b)"}
+              {llmProvider === "ollama" && "Click \"Fetch available models\" to load the list from your Ollama instance, or type a model name manually."}
               {llmProvider === "openai-compat" && "Check your provider's documentation for available model names"}
             </div>
           </div>
