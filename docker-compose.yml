@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  rfu:
+    build: .
+    image: roll-for-uptime:latest
+    container_name: roll-for-uptime
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - rfu_data:/data
+    environment:
+      # ── Required ──────────────────────────────────────────────────────────
+      NODE_ENV: production
+      PORT: 3000
+      JWT_SECRET: "change-me-to-a-long-random-string"
+
+      # ── LLM (optional — leave blank for supervisor-only mode) ─────────────
+      # LLM_PROVIDER: openai          # openai | anthropic | ollama | custom
+      # LLM_API_KEY: sk-...
+      # LLM_MODEL: gpt-4o             # default per provider if omitted
+      # LLM_BASE_URL:                 # for ollama or custom OpenAI-compatible endpoints
+
+      # ── Image generation (optional) ───────────────────────────────────────
+      # IMAGE_PROVIDER: openai        # openai | stability
+      # IMAGE_API_KEY: sk-...
+
+      # ── Security ──────────────────────────────────────────────────────────
+      # REQUIRE_INVITE: "true"        # require invite codes to register
+
+volumes:
+  rfu_data:
+    driver: local
