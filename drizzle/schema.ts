@@ -34,6 +34,8 @@ export const characters = mysqlTable("characters", {
   avatarUrl: text("avatarUrl"),                            // NEW: AI-generated avatar URL
   avatarPrompt: text("avatarPrompt"),                      // NEW: prompt used to generate avatar
   bio: text("bio"),                                          // NEW: player-written backstory/bio
+  cardDesign: varchar("cardDesign", { length: 32 }).default("scifi"),  // ID card design preference
+  cardAwards: text("cardAwards"),                              // JSON array of up to 3 award objects
   xp: int("xp").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

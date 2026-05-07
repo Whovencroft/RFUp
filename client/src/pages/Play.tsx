@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
-import CssIdCard, { CARD_DESIGNS, CardDesign } from "@/components/CssIdCard";
+import CssIdCard, { CARD_DESIGNS, CardDesign, CardAward } from "@/components/CssIdCard";
 import html2canvas from "html2canvas";
 
 // ── Character Creation ─────────────────────────────────────────────────────
@@ -196,6 +196,7 @@ export default function Play() {
   const [avatarPrompt, setAvatarPrompt] = useState("");
   const [generatingAvatar, setGeneratingAvatar] = useState(false);
   const [cardDesign, setCardDesign] = useState<CardDesign>("scifi");
+  const [selectedAwards, setSelectedAwards] = useState<CardAward[]>([]);
   const [cardExporting, setCardExporting] = useState(false);
 
   const generateAvatarMutation = trpc.character.generateAvatar.useMutation({
@@ -376,6 +377,39 @@ export default function Play() {
                                 </button>
                               ))}
                             </div>
+                            {/* Award selector — pick up to 3 from earned commendations */}
+                            {commendations && commendations.length > 0 && (
+                              <div className="mb-3">
+                                <p className="text-xs text-muted-foreground mb-1.5 text-center">Pin up to 3 awards to your card:</p>
+                                <div className="flex gap-2 flex-wrap justify-center">
+                                  {commendations.slice(0, 9).map((c) => {
+                                    const award: CardAward = { emoji: "🏅", label: c.title.slice(0, 12) };
+                                    const isSelected = selectedAwards.some((a) => a.label === award.label);
+                                    return (
+                                      <button
+                                        key={c.id}
+                                        title={c.title}
+                                        onClick={() => {
+                                          if (isSelected) {
+                                            setSelectedAwards((prev) => prev.filter((a) => a.label !== award.label));
+                                          } else if (selectedAwards.length < 3) {
+                                            setSelectedAwards((prev) => [...prev, award]);
+                                          }
+                                        }}
+                                        className={cn(
+                                          "px-2 py-0.5 rounded text-xs border transition-colors",
+                                          isSelected
+                                            ? "bg-primary text-primary-foreground border-primary"
+                                            : "bg-card text-muted-foreground border-border hover:border-primary/50"
+                                        )}
+                                      >
+                                        🏅 {c.title.slice(0, 14)}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                             <div id="play-id-card-export">
                               <CssIdCard
                                 name={character.name}
@@ -384,6 +418,7 @@ export default function Play() {
                                 xp={character.xp}
                                 design={cardDesign}
                                 size="large"
+                                awards={selectedAwards.length > 0 ? selectedAwards : undefined}
                               />
                             </div>
                           </>

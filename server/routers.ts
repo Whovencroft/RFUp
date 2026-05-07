@@ -115,6 +115,8 @@ export const appRouter = router({
         jobTitle: z.string().min(1).max(128).optional(),
         callsign: z.string().max(64).optional(),
         bio: z.string().max(2000).optional(),
+        cardDesign: z.string().max(32).optional(),
+        cardAwards: z.string().optional(), // JSON string: [{emoji, label}]
       }))
       .mutation(async ({ ctx, input }) => {
         const char = await getCharacterByUserId(ctx.user.id);

@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { Textarea as TextareaEl } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import CssIdCard from "@/components/CssIdCard";
 
 // ── Die Face ─────────────────────────────────────────────────────────────────
 
@@ -619,13 +620,35 @@ export default function AiSession() {
 
           {/* Operator header */}
           <div className="p-4 border-b border-border shrink-0">
-            <p className="text-xs font-mono text-muted-foreground tracking-widest mb-1">OPERATOR FILE</p>
+            <p className="text-xs font-mono text-muted-foreground tracking-widest mb-2">OPERATOR FILE</p>
+            {myChar && (
+              <div className="flex items-start gap-3 mb-3">
+                <div className="shrink-0">
+                  <CssIdCard
+                    name={myChar.name}
+                    callsign={myChar.callsign}
+                    jobTitle={myChar.jobTitle ?? "Operator"}
+                    xp={myChar.xp ?? 0}
+                    design={(myChar.cardDesign as any) ?? "scifi"}
+                    size="small"
+                    awards={myChar.cardAwards ? JSON.parse(myChar.cardAwards) : undefined}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-serif font-bold text-foreground truncate">
+                    {myChar.name}
+                  </h2>
+                  {myChar.callsign && (
+                    <p className="text-xs font-mono text-primary tracking-widest truncate">◈ {myChar.callsign}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground truncate">{myChar.jobTitle ?? "Unassigned"}</p>
+                </div>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="text-lg font-serif font-bold text-foreground truncate">
-                  {myChar?.name ?? "—"}
-                </h2>
-                <p className="text-xs text-muted-foreground truncate">{myChar?.jobTitle ?? "Unassigned"}</p>
+                {!myChar && <h2 className="text-lg font-serif font-bold text-foreground truncate">—</h2>}
+                {!myChar && <p className="text-xs text-muted-foreground truncate">Unassigned</p>}
               </div>
               <Link href="/print">
                 <button className="text-muted-foreground hover:text-foreground transition-colors mt-0.5 shrink-0" title="Print character sheet">
@@ -695,8 +718,16 @@ export default function AiSession() {
               <div className="space-y-1.5">
                 {allies.map((a) => (
                   <div key={a.userId} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-card border border-border">
-                    <div className="w-5 h-5 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
-                      <User className="w-3 h-3 text-muted-foreground" />
+                    <div className="shrink-0">
+                      <CssIdCard
+                        name={a.name}
+                        callsign={a.callsign}
+                        jobTitle={a.jobTitle ?? "Operator"}
+                        xp={a.xp ?? 0}
+                        design={((a as any).cardDesign) ?? "scifi"}
+                        size="small"
+                        awards={(a as any).cardAwards ? JSON.parse((a as any).cardAwards) : undefined}
+                      />
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">{a.name}</p>

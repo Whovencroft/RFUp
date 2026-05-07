@@ -280,3 +280,11 @@
 - [x] Frontend: Notifications tab — live feed (poll every 30s), with type icons and relative timestamps
 - [x] Frontend: Notifications tab — Mark all as read button + click-to-read on individual notifications
 - [x] Frontend: Remove notifyOwner calls from turn-timeout endpoint (replaced by in-app notifications)
+
+## Feature: ID Card Awards & AI Session Panel
+- [x] Backend: add cardDesign and cardAwards columns to characters table, migration applied
+- [x] Backend: character.update accepts cardDesign and cardAwards fields
+- [ ] Frontend: CssIdCard — add awards prop (up to 3 Award objects with emoji/label) shown on all 4 designs
+- [ ] Frontend: Play page lightbox — award selector (pick up to 3 from earned commendations), saves to character
+- [ ] Frontend: AiSession left panel — show each player's CssIdCard thumbnail with their awards
+- [ ] Standalone: port awards support to CssIdCard.tsx and OperatorFile.tsx
