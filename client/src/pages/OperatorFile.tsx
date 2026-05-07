@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { trpc } from "../lib/trpc";
-import CssIdCard, { CARD_DESIGNS, CardDesign } from "../components/CssIdCard";
+import CssIdCard, { CARD_DESIGNS, CardDesign, CardAward } from "../components/CssIdCard";
 import html2canvas from "html2canvas";
 
 export default function OperatorFile() {
@@ -13,6 +13,7 @@ export default function OperatorFile() {
   // "css" = CSS ID card (no API needed), "ai" = AI-generated image
   const [portraitMode, setPortraitMode] = useState<"css" | "ai">("css");
   const [cardDesign, setCardDesign] = useState<CardDesign>("scifi");
+  const [selectedAwards, setSelectedAwards] = useState<CardAward[]>([]);
   const [exporting, setExporting] = useState(false);
 
   const createChar = trpc.character.create.useMutation({
@@ -281,6 +282,40 @@ export default function OperatorFile() {
           }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{ position: "relative" }}>
+            {/* Award selector */}
+            {char.commendations && char.commendations.length > 0 && (
+              <div style={{ marginBottom: "0.75rem", textAlign: "center" }}>
+                <p style={{ fontSize: "0.7rem", color: "#8aada4", marginBottom: "0.4rem" }}>Pin up to 3 awards:</p>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "center" }}>
+                  {char.commendations.slice(0, 9).map((c: any) => {
+                    const award: CardAward = { emoji: "🏅", label: c.title.slice(0, 12) };
+                    const isSelected = selectedAwards.some((a) => a.label === award.label);
+                    return (
+                      <button
+                        key={c.id}
+                        title={c.title}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedAwards((prev) => prev.filter((a) => a.label !== award.label));
+                          } else if (selectedAwards.length < 3) {
+                            setSelectedAwards((prev) => [...prev, award]);
+                          }
+                        }}
+                        style={{
+                          padding: "0.2rem 0.5rem", fontSize: "0.7rem",
+                          border: isSelected ? "1px solid #00c8a0" : "1px solid #2a3a3e",
+                          background: isSelected ? "#00c8a022" : "transparent",
+                          color: isSelected ? "#00c8a0" : "#8aada4",
+                          borderRadius: "4px", cursor: "pointer",
+                        }}
+                      >
+                        🏅 {c.title.slice(0, 14)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div id="id-card-export-target">
               <CssIdCard
                 name={char.name}
@@ -289,6 +324,7 @@ export default function OperatorFile() {
                 xp={char.xp}
                 design={cardDesign}
                 size="large"
+                awards={selectedAwards.length > 0 ? selectedAwards : undefined}
               />
             </div>
             <div style={{ display: "flex", gap: "0.5rem", position: "absolute", top: "-2.5rem", right: 0 }}>

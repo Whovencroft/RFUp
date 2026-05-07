@@ -12,6 +12,7 @@
 import React from "react";
 
 export type CardDesign = "scifi" | "federal" | "military" | "corporate";
+export interface CardAward { emoji: string; label: string; }
 
 export interface CssIdCardProps {
   name: string;
@@ -22,6 +23,8 @@ export interface CssIdCardProps {
   /** Size variant */
   size?: "small" | "medium" | "large";
   /** Click handler for lightbox */
+  /** Up to 3 awards to display on the card */
+  awards?: CardAward[];
   onClick?: () => void;
 }
 
@@ -120,9 +123,41 @@ function PhotoBox({ initials: init, accent, width, height, bg = "#e8eef2" }: {
   );
 }
 
+
+// ─── Awards row helper ─────────────────────────────────────────────────────────
+function AwardsRow({ awards, f, dark = false }: { awards?: CardAward[]; f: (n: number) => number; dark?: boolean }) {
+  if (!awards || awards.length === 0) return null;
+  const list = awards.slice(0, 3);
+  return (
+    <div style={{
+      display: "flex", gap: f(4), alignItems: "center",
+      marginTop: f(4), flexWrap: "wrap",
+    }}>
+      {list.map((a, i) => (
+        <div key={i} title={a.label} style={{
+          display: "flex", flexDirection: "column", alignItems: "center",
+          gap: f(1), minWidth: f(24),
+        }}>
+          <div style={{
+            width: f(22), height: f(22), borderRadius: "50%",
+            background: dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.07)",
+            border: dark ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.15)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: f(11),
+          }}>{a.emoji}</div>
+          <span style={{
+            fontSize: f(5.5), color: dark ? "rgba(255,255,255,0.5)" : "#666",
+            textAlign: "center", letterSpacing: "0.03em",
+            maxWidth: f(28), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>{a.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 // ─── Design 1: US Federal PIV badge ───────────────────────────────────────────
 
-function FederalCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCardProps & { size: "small"|"medium"|"large" }) {
+function FederalCard({ name, callsign, jobTitle, xp, size, onClick, awards }: CssIdCardProps & { size: "small"|"medium"|"large" }) {
   const scale = size === "small" ? 0.55 : size === "medium" ? 0.8 : 1.2;
   const W = Math.round(242 * scale);
   const H = Math.round(384 * scale);
@@ -229,6 +264,7 @@ function FederalCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCardP
         </div>
       </div>
 
+      <AwardsRow awards={awards} f={f} dark={false} />
       {/* Colour stripe at bottom — category indicator */}
       <div style={{
         height: f(20),
@@ -255,7 +291,7 @@ function FederalCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCardP
 
 // ─── Design 2: Military CAC-style ─────────────────────────────────────────────
 
-function MilitaryCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCardProps & { size: "small"|"medium"|"large" }) {
+function MilitaryCard({ name, callsign, jobTitle, xp, size, onClick, awards }: CssIdCardProps & { size: "small"|"medium"|"large" }) {
   const scale = size === "small" ? 0.55 : size === "medium" ? 0.8 : 1.2;
   // CAC is landscape: 85.6mm × 54mm → ~3.37:1 ratio
   const W = Math.round(340 * scale);
@@ -369,6 +405,7 @@ function MilitaryCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCard
             </div>
           )}
 
+          <AwardsRow awards={awards} f={f} dark={false} />
           <div style={{ fontSize: f(6), color: "#888", marginTop: "auto", lineHeight: 1.4 }}>
             This card is the property of Facility 404.<br />
             Geneva Conventions Identification Card.
@@ -387,7 +424,7 @@ function MilitaryCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCard
 
 // ─── Design 3: Corporate Security Access ──────────────────────────────────────
 
-function CorporateCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCardProps & { size: "small"|"medium"|"large" }) {
+function CorporateCard({ name, callsign, jobTitle, xp, size, onClick, awards }: CssIdCardProps & { size: "small"|"medium"|"large" }) {
   const scale = size === "small" ? 0.55 : size === "medium" ? 0.8 : 1.2;
   const W = Math.round(242 * scale);
   const H = Math.round(384 * scale);
@@ -500,6 +537,7 @@ function CorporateCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCar
         <MiniQr seed={name + eid} size={f(48)} fg={accent} bg="#0a1520" />
       </div>
 
+      <AwardsRow awards={awards} f={f} dark={true} />
       {/* Bottom gold stripe */}
       <div style={{
         height: f(8),
@@ -511,7 +549,7 @@ function CorporateCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCar
 
 // ─── Design 4: Original Sci-Fi (kept for backward compat) ─────────────────────
 
-function SciFiCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCardProps & { size: "small"|"medium"|"large" }) {
+function SciFiCard({ name, callsign, jobTitle, xp, size, onClick, awards }: CssIdCardProps & { size: "small"|"medium"|"large" }) {
   const scale = size === "small" ? 0.55 : size === "medium" ? 0.8 : 1.2;
   const W = Math.round(242 * scale);
   const H = Math.round(330 * scale);
@@ -584,6 +622,7 @@ function SciFiCard({ name, callsign, jobTitle, xp, size, onClick }: CssIdCardPro
           </div>
         )}
       </div>
+      <AwardsRow awards={awards} f={f} dark={true} />
       <div style={{
         height: f(10),
         background: `repeating-linear-gradient(90deg, ${accent}33 0px, ${accent}33 2px, transparent 2px, transparent 4px, ${accent}55 4px, ${accent}55 5px, transparent 5px, transparent 8px)`,
