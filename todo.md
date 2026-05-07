@@ -288,3 +288,8 @@
 - [x] Frontend: Play page lightbox — award selector (pick up to 3 from earned commendations), saves to character
 - [x] Frontend: AiSession left panel — show each player's CssIdCard thumbnail with their awards
 - [x] Standalone: port awards support to CssIdCard.tsx and OperatorFile.tsx
+
+## Feature: Persist Card Design + GM Panel Card Thumbnails
+- [x] Frontend: Play page — save cardDesign to DB via character.update when player changes design in lightbox
+- [x] Frontend: Play page — load cardDesign from character data on mount (pre-select the saved design)
+- [x] Frontend: GM Panel Operator Files tab — show CssIdCard thumbnail in each operator's expandable card

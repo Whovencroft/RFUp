@@ -111,7 +111,7 @@ export async function createCharacter(data: InsertCharacter) {
 
 export async function updateCharacter(
   id: number,
-  data: Partial<Pick<InsertCharacter, "name" | "jobTitle" | "xp" | "callsign" | "avatarUrl" | "avatarPrompt" | "bio">>
+  data: Partial<Pick<InsertCharacter, "name" | "jobTitle" | "xp" | "callsign" | "avatarUrl" | "avatarPrompt" | "bio" | "cardDesign" | "cardAwards">>
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");

@@ -55,10 +55,11 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useState as useLocalState } from "react";
+import CssIdCard, { CardDesign, CardAward } from "@/components/CssIdCard";
 
 // ── Operator File Card (expandable, shows session history) ────────────────
 function OperatorFileCard({ char }: {
-  char: { id: number; name: string; jobTitle: string; xp: number; skills?: { id: number; name: string; level: number }[] | null };
+  char: { id: number; name: string; jobTitle: string; xp: number; callsign?: string | null; cardDesign?: string | null; cardAwards?: string | null; skills?: { id: number; name: string; level: number }[] | null };
 }) {
   const [expanded, setExpanded] = useLocalState(false);
   const { data: history, isLoading: historyLoading } = trpc.character.getSessionHistoryByCharId.useQuery(
@@ -73,6 +74,18 @@ function OperatorFileCard({ char }: {
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex items-center gap-3 min-w-0">
+          {/* ID card thumbnail */}
+          <div className="shrink-0 w-10 h-14 overflow-hidden rounded" style={{ pointerEvents: "none" }}>
+            <CssIdCard
+              name={char.name}
+              callsign={char.callsign}
+              jobTitle={char.jobTitle}
+              xp={char.xp}
+              design={(char.cardDesign as CardDesign) ?? "scifi"}
+              size="small"
+              awards={char.cardAwards ? (() => { try { return JSON.parse(char.cardAwards!); } catch { return undefined; } })() : undefined}
+            />
+          </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground">{char.name}</p>
             <p className="text-xs text-muted-foreground">{char.jobTitle}</p>

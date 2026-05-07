@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
@@ -197,6 +197,15 @@ export default function Play() {
   const [generatingAvatar, setGeneratingAvatar] = useState(false);
   const [cardDesign, setCardDesign] = useState<CardDesign>("scifi");
   const [selectedAwards, setSelectedAwards] = useState<CardAward[]>([]);
+  // Load persisted card design and awards from character data
+  const characterCardDesign = (character as any)?.cardDesign as CardDesign | undefined;
+  const characterCardAwards = (character as any)?.cardAwards as string | undefined;
+  useEffect(() => {
+    if (characterCardDesign) setCardDesign(characterCardDesign as CardDesign);
+    if (characterCardAwards) {
+      try { setSelectedAwards(JSON.parse(characterCardAwards)); } catch {}
+    }
+  }, [characterCardDesign, characterCardAwards]);
   const [cardExporting, setCardExporting] = useState(false);
 
   const generateAvatarMutation = trpc.character.generateAvatar.useMutation({
@@ -208,6 +217,10 @@ export default function Play() {
       setAvatarPrompt("");
     },
     onError: (e) => { setGeneratingAvatar(false); toast.error(e.message); },
+  });
+  const saveCardMutation = trpc.character.update.useMutation({
+    onSuccess: () => utils.character.get.invalidate(),
+    onError: (e) => toast.error(e.message),
   });
 
   if (authLoading) {
@@ -365,7 +378,10 @@ export default function Play() {
                               {CARD_DESIGNS.map((d) => (
                                 <button
                                   key={d.value}
-                                  onClick={() => setCardDesign(d.value)}
+                                  onClick={() => {
+                                    setCardDesign(d.value);
+                                    saveCardMutation.mutate({ cardDesign: d.value });
+                                  }}
                                   className={cn(
                                     "px-2.5 py-1 rounded text-xs border transition-colors",
                                     cardDesign === d.value
@@ -444,6 +460,13 @@ export default function Play() {
                                 }}
                               >
                                 {cardExporting ? "Exporting…" : "⬇ Save PNG"}
+                              </button>
+                              <button
+                                className="px-2.5 py-1 rounded text-xs bg-card border border-border text-muted-foreground hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                                onClick={() => saveCardMutation.mutate({ cardAwards: JSON.stringify(selectedAwards) })}
+                                title="Save pinned awards to your card"
+                              >
+                                {saveCardMutation.isPending ? "Saving…" : "💾 Save Awards"}
                               </button>
                               <button
                                 className="px-2.5 py-1 rounded text-xs bg-card border border-border text-muted-foreground hover:bg-primary/10 hover:border-primary/50 transition-colors"
