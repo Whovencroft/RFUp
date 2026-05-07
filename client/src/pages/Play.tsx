@@ -383,12 +383,12 @@ export default function Play() {
                                 <p className="text-xs text-muted-foreground mb-1.5 text-center">Pin up to 3 awards to your card:</p>
                                 <div className="flex gap-2 flex-wrap justify-center">
                                   {commendations.slice(0, 9).map((c) => {
-                                    const award: CardAward = { emoji: "🏅", label: c.title.slice(0, 12) };
+                                    const award: CardAward = { emoji: "🏅", label: c.reason.slice(0, 12) };
                                     const isSelected = selectedAwards.some((a) => a.label === award.label);
                                     return (
                                       <button
                                         key={c.id}
-                                        title={c.title}
+                                        title={c.reason}
                                         onClick={() => {
                                           if (isSelected) {
                                             setSelectedAwards((prev) => prev.filter((a) => a.label !== award.label));
@@ -403,7 +403,7 @@ export default function Play() {
                                             : "bg-card text-muted-foreground border-border hover:border-primary/50"
                                         )}
                                       >
-                                        🏅 {c.title.slice(0, 14)}
+                                        🏅 {c.reason.slice(0, 14)}
                                       </button>
                                     );
                                   })}

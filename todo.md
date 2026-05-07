@@ -284,7 +284,7 @@
 ## Feature: ID Card Awards & AI Session Panel
 - [x] Backend: add cardDesign and cardAwards columns to characters table, migration applied
 - [x] Backend: character.update accepts cardDesign and cardAwards fields
-- [ ] Frontend: CssIdCard — add awards prop (up to 3 Award objects with emoji/label) shown on all 4 designs
-- [ ] Frontend: Play page lightbox — award selector (pick up to 3 from earned commendations), saves to character
-- [ ] Frontend: AiSession left panel — show each player's CssIdCard thumbnail with their awards
-- [ ] Standalone: port awards support to CssIdCard.tsx and OperatorFile.tsx
+- [x] Frontend: CssIdCard — add awards prop (up to 3 Award objects with emoji/label) shown on all 4 designs
+- [x] Frontend: Play page lightbox — award selector (pick up to 3 from earned commendations), saves to character
+- [x] Frontend: AiSession left panel — show each player's CssIdCard thumbnail with their awards
+- [x] Standalone: port awards support to CssIdCard.tsx and OperatorFile.tsx
