@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { getSocket, joinSupervisorRoom } from "../lib/socket";
+import { useTheme } from "../contexts/ThemeContext";
 
 export default function GmPanel() {
+  const theme = useTheme();
   const [activeTab, setActiveTab] = useState<"sessions" | "notifications" | "incidents">("sessions");
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [sessionForm, setSessionForm] = useState({ title: "", gmNotes: "", llmProvider: "", llmModel: "" });
@@ -57,7 +59,7 @@ export default function GmPanel() {
     <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "2rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
         <div>
-          <h2 style={{ margin: 0 }}>Shift Supervisor Panel</h2>
+          <h2 style={{ margin: 0 }}>{theme.supervisorLabel} Panel</h2>
           <p style={{ margin: "0.25rem 0 0", color: "var(--text-muted)", fontSize: "0.875rem" }}>
             AI GM: {llmStatus?.isConfigured ? `${llmStatus.provider} / ${llmStatus.model}` : "Supervisor-only mode (no LLM configured)"}
           </p>
@@ -106,7 +108,7 @@ export default function GmPanel() {
         {[
           { key: "sessions", label: "Sessions", count: sessions?.length },
           { key: "notifications", label: "Notifications", count: unreadCount, highlight: unreadCount > 0 },
-          { key: "incidents", label: "Incidents" },
+          { key: "incidents", label: theme.incidentPluralLabel },
         ].map((tab) => (
           <button
             key={tab.key}

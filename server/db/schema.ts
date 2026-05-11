@@ -12,6 +12,7 @@ export const users = sqliteTable("users", {
   displayName: text("display_name"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   lastSignedIn: integer("last_signed_in", { mode: "timestamp_ms" }),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
 });
 
 // ── Characters (Operator Files) ───────────────────────────────────────────────
@@ -142,6 +143,7 @@ export const supervisorNotifications = sqliteTable("supervisor_notifications", {
 export const inviteCodes = sqliteTable("invite_codes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   code: text("code").notNull().unique(),
+  inviteType: text("invite_type", { enum: ["session", "registration"] }).notNull().default("session"),
   sessionId: integer("session_id").references(() => aiSessions.id, { onDelete: "cascade" }),
   createdBy: integer("created_by").notNull().references(() => users.id),
   usedBy: integer("used_by").references(() => users.id),

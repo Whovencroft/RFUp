@@ -1,6 +1,7 @@
 import React from "react";
 import { Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
+import { useTheme } from "./contexts/ThemeContext";
 import { trpc } from "./lib/trpc";
 
 // Pages
@@ -16,6 +17,7 @@ import AdminSettings from "./pages/AdminSettings";
 
 function Nav() {
   const { user, isLoading } = useAuth();
+  const theme = useTheme();
   const navigate = useNavigate();
   const logout = trpc.auth.logout.useMutation({
     onSuccess: () => {
@@ -37,18 +39,18 @@ function Nav() {
       zIndex: 100,
     }}>
       <Link to="/" style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--teal)", fontSize: "1rem", letterSpacing: "0.05em" }}>
-        FACILITY 404
+        {theme.settingShortName}
       </Link>
 
       <div style={{ flex: 1, display: "flex", gap: "1rem", alignItems: "center" }}>
         {user && (
           <>
-            <Link to="/sessions" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Sessions</Link>
-            <Link to="/incidents" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Incidents</Link>
-            <Link to="/operator" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Operator File</Link>
+            <Link to="/sessions" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>{theme.sessionPluralLabel}</Link>
+            <Link to="/incidents" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>{theme.incidentPluralLabel}</Link>
+            <Link to="/operator" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>{theme.operatorFileLabel}</Link>
             {user.role === "admin" && (
               <>
-                <Link to="/gm" style={{ color: "var(--teal)", fontSize: "0.875rem" }}>Shift Supervisor</Link>
+                <Link to="/gm" style={{ color: "var(--teal)", fontSize: "0.875rem" }}>{theme.supervisorLabel}</Link>
                 <Link to="/admin/settings" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Settings</Link>
               </>
             )}

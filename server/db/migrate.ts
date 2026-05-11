@@ -15,7 +15,8 @@ export async function runMigrations() {
       role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin','user')),
       display_name TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
-      last_signed_in INTEGER
+      last_signed_in INTEGER,
+      is_active INTEGER NOT NULL DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS characters (
@@ -131,6 +132,7 @@ export async function runMigrations() {
     CREATE TABLE IF NOT EXISTS invite_codes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       code TEXT NOT NULL UNIQUE,
+      invite_type TEXT NOT NULL DEFAULT 'session' CHECK(invite_type IN ('session','registration')),
       session_id INTEGER REFERENCES ai_sessions(id) ON DELETE CASCADE,
       created_by INTEGER NOT NULL REFERENCES users(id),
       used_by INTEGER REFERENCES users(id),
@@ -140,5 +142,14 @@ export async function runMigrations() {
     );
   `);
 
+
+  // Alter existing tables to add new columns (safe — IF NOT EXISTS not supported in SQLite ALTER, so we try/catch)
+  const alterStatements = [
+    "ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE invite_codes ADD COLUMN invite_type TEXT NOT NULL DEFAULT 'session'",
+  ];
+  for (const stmt of alterStatements) {
+    try { await db.execute(stmt); } catch { /* column already exists */ }
+  }
   console.log("[DB] Migrations complete");
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { getSocket, joinSession, leaveSession } from "../lib/socket";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -97,6 +98,7 @@ export default function Session() {
   const { id } = useParams<{ id: string }>();
   const sessionId = parseInt(id ?? "0");
   const { user } = useAuth();
+  const theme = useTheme();
   const navigate = useNavigate();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -209,7 +211,7 @@ export default function Session() {
         overflow: "hidden",
       }}>
         <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Session</div>
+          <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>{theme.sessionLabel}</div>
           <div style={{ fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.2 }}>{session.title}</div>
           <div style={{ marginTop: "0.35rem" }}>
             {session.status === "active" ? (
@@ -224,7 +226,7 @@ export default function Session() {
 
         <div style={{ padding: "0.75rem 1rem", flex: 1, overflowY: "auto" }}>
           <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
-            Operators ({players?.filter((p) => p.isActive).length ?? 0})
+            {theme.operatorPluralLabel} ({players?.filter((p) => p.isActive).length ?? 0})
           </div>
           {players?.filter((p) => p.isActive).map((p) => (
             <div key={p.id} style={{ marginBottom: "0.75rem" }}>

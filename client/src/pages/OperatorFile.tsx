@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { trpc } from "../lib/trpc";
 import CssIdCard, { CARD_DESIGNS, CardDesign, CardAward } from "../components/CssIdCard";
 import html2canvas from "html2canvas";
+import { useTheme } from "../contexts/ThemeContext";
 
 export default function OperatorFile() {
+  const theme = useTheme();
   const { data: char, isLoading, refetch } = trpc.character.get.useQuery();
   const [form, setForm] = useState({ name: "", callsign: "", jobTitle: "Security Analyst", bio: "" });
   const [avatarDesc, setAvatarDesc] = useState("");
@@ -33,13 +35,13 @@ export default function OperatorFile() {
 
   const rollDice = trpc.character.rollDice.useMutation();
 
-  if (isLoading) return <div style={{ padding: "2rem", color: "var(--text-muted)" }}>Loading operator file…</div>;
+  if (isLoading) return <div style={{ padding: "2rem", color: "var(--text-muted)" }}>Loading {theme.operatorFileLabel.toLowerCase()}…</div>;
 
   if (!char) {
     return (
       <div style={{ maxWidth: "500px", margin: "4rem auto", padding: "0 2rem" }}>
-        <h2>Create Operator File</h2>
-        <p style={{ color: "var(--text-muted)" }}>You don't have an operator file yet. Create one to join sessions.</p>
+        <h2>Create {theme.operatorFileLabel}</h2>
+        <p style={{ color: "var(--text-muted)" }}>You don't have a {theme.operatorFileLabel.toLowerCase()} yet. Create one to join {theme.sessionPluralLabel.toLowerCase()}.</p>
         <div className="card" style={{ marginTop: "1.5rem" }}>
           <form onSubmit={(e) => { e.preventDefault(); setError(""); createChar.mutate(form); }}>
             <div className="form-group">
@@ -60,7 +62,7 @@ export default function OperatorFile() {
             </div>
             {error && <div style={{ color: "var(--red)", fontSize: "0.875rem", marginBottom: "1rem" }}>{error}</div>}
             <button type="submit" className="btn btn-primary" disabled={createChar.isPending}>
-              {createChar.isPending ? "Creating…" : "Create Operator File"}
+              {createChar.isPending ? "Creating…" : `Create ${theme.operatorFileLabel}`}
             </button>
           </form>
         </div>
@@ -172,7 +174,7 @@ export default function OperatorFile() {
           )}
           <div style={{ display: "flex", gap: "1rem" }}>
             <div>
-              <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>XP</div>
+              <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{theme.xpLabel}</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.25rem", color: "var(--teal)" }}>{char.xp}</div>
             </div>
             <div>

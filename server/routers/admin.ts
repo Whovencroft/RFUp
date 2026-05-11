@@ -194,3 +194,6 @@ export const adminRouter = router({
     }
   }),
 });
+
+// ─── User Management Procedures (appended) ────────────────────────────────────
+// These are added to the adminRouter object — exported as a merged router below.

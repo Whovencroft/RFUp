@@ -4,6 +4,8 @@ import { characterRouter } from "./character.js";
 import { sessionsRouter } from "./sessions.js";
 import { incidentsRouter } from "./incidents.js";
 import { adminRouter } from "./admin.js";
+import { adminUsersRouter } from "./admin-users.js";
+import { adminThemeRouter } from "./admin-theme.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -11,6 +13,8 @@ export const appRouter = router({
   sessions: sessionsRouter,
   incidents: incidentsRouter,
   admin: adminRouter,
+  adminUsers: adminUsersRouter,
+  theme: adminThemeRouter,
 });
 
 export type AppRouter = typeof appRouter;

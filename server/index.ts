@@ -11,6 +11,7 @@ import { runMigrations } from "./db/migrate.js";
 import { initSocketIO } from "./realtime.js";
 import { ensureUploadsDir } from "./storage.js";
 import { loadPersistedSettings } from "./routers/admin.js";
+import { loadPersistedTheme } from "./routers/admin-theme.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? "3000");
@@ -20,6 +21,7 @@ async function main() {
   // Run DB migrations on startup
   await runMigrations();
   await loadPersistedSettings();
+  await loadPersistedTheme();
   ensureUploadsDir();
 
   const app = express();

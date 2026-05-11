@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 export default function Login() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { refetch } = useAuth();
   const [form, setForm] = useState({ usernameOrEmail: "", password: "" });
   const [error, setError] = useState("");
@@ -29,7 +31,7 @@ export default function Login() {
         <div style={{ marginBottom: "1.5rem" }}>
           <h2 style={{ margin: 0, fontSize: "1.25rem" }}>Sign In</h2>
           <p style={{ margin: "0.35rem 0 0", color: "var(--text-muted)", fontSize: "0.875rem" }}>
-            Access your Facility 404 operator account
+            Access your {theme.settingName} {theme.operatorLabel.toLowerCase()} account
           </p>
         </div>
 

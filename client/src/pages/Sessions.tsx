@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 function statusBadge(status: string) {
   if (status === "active") return <span className="badge badge-teal">Active</span>;
@@ -11,6 +12,7 @@ function statusBadge(status: string) {
 
 export default function Sessions() {
   const { user } = useAuth();
+  const theme = useTheme();
   const { data: sessions, isLoading } = trpc.sessions.list.useQuery();
 
   if (isLoading) return <div style={{ padding: "2rem", color: "var(--text-muted)" }}>Loading sessions…</div>;
@@ -18,7 +20,7 @@ export default function Sessions() {
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-        <h2 style={{ margin: 0 }}>Sessions</h2>
+        <h2 style={{ margin: 0 }}>{theme.sessionPluralLabel}</h2>
         {user?.role === "admin" && (
           <Link to="/gm" className="btn btn-primary" style={{ fontSize: "0.875rem" }}>
             + New Session (GM Panel)

@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 export default function Register() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { refetch } = useAuth();
   const [form, setForm] = useState({
     username: "",
@@ -41,7 +43,7 @@ export default function Register() {
         <div style={{ marginBottom: "1.5rem" }}>
           <h2 style={{ margin: 0, fontSize: "1.25rem" }}>Create Account</h2>
           <p style={{ margin: "0.35rem 0 0", color: "var(--text-muted)", fontSize: "0.875rem" }}>
-            Join Facility 404 as a security operator
+            Join {theme.settingName} as a {theme.operatorLabel.toLowerCase()}
           </p>
           <p style={{ margin: "0.35rem 0 0", color: "var(--teal)", fontSize: "0.8rem", fontFamily: "var(--font-mono)" }}>
             First account registered becomes the admin

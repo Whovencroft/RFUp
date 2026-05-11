@@ -1,10 +1,12 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { trpc } from "../lib/trpc";
 
 export default function Home() {
   const { user } = useAuth();
+  const theme = useTheme();
   const { data: llmStatus } = trpc.auth.llmStatus.useQuery();
 
   return (
@@ -12,7 +14,7 @@ export default function Home() {
       {/* Hero */}
       <div style={{ marginBottom: "3rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
-          <span className="badge badge-teal">FACILITY 404 — UPTIME CRITICAL</span>
+          <span className="badge badge-teal">{theme.settingShortName} — UPTIME CRITICAL</span>
           {llmStatus && (
             <span className={`badge ${llmStatus.isConfigured ? "badge-teal" : "badge-muted"}`}>
               AI GM: {llmStatus.isConfigured ? `${llmStatus.provider} / ${llmStatus.model}` : "Supervisor-only mode"}
@@ -20,17 +22,19 @@ export default function Home() {
           )}
         </div>
         <h1 style={{ fontSize: "clamp(2.5rem, 6vw, 4rem)", margin: "0 0 0.5rem", lineHeight: 1.1 }}>
-          Roll for<br />
-          <span style={{ color: "var(--teal)" }}>Uptime</span>
+          {theme.gameName}
         </h1>
-        <p style={{ fontSize: "1.1rem", color: "var(--text-muted)", maxWidth: "520px", margin: "0 0 2rem" }}>
-          A self-hosted tabletop RPG for security teams. Six rules, one die pool, and however many incident reports it takes to get through the shift.
+        <p style={{ fontSize: "1.1rem", color: "var(--teal)", maxWidth: "520px", margin: "0 0 0.25rem", fontStyle: "italic" }}>
+          {theme.tagline}
+        </p>
+        <p style={{ fontSize: "1rem", color: "var(--text-muted)", maxWidth: "520px", margin: "0 0 2rem" }}>
+          {theme.welcomeMessage}
         </p>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
           {user ? (
             <>
-              <Link to="/sessions" className="btn btn-primary">View Sessions</Link>
-              <Link to="/operator" className="btn btn-ghost">Operator File</Link>
+              <Link to="/sessions" className="btn btn-primary">View {theme.sessionPluralLabel}</Link>
+              <Link to="/operator" className="btn btn-ghost">{theme.operatorFileLabel}</Link>
             </>
           ) : (
             <>
@@ -48,7 +52,7 @@ export default function Home() {
           { title: "Roll for Shoes", body: "Roll a number of d6 equal to your skill level. Take the highest result." },
           { title: "Fail to Grow", body: "If your highest die beats the DC, you succeed. If you fail, gain 1 XP." },
           { title: "Spend XP to Level Up", body: "Spend XP equal to the new level to upgrade a skill or add a sub-skill." },
-          { title: "Supervisor Mode", body: "Works without an AI — the Shift Supervisor narrates and adjudicates manually." },
+          { title: `${theme.supervisorLabel} Mode`, body: `Works without an AI — the ${theme.supervisorLabel} narrates and adjudicates manually.` },
         ].map((rule) => (
           <div key={rule.title} className="card">
             <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.95rem", color: "var(--teal)" }}>{rule.title}</h3>
