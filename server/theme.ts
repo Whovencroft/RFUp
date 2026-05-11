@@ -191,7 +191,7 @@ export const THEME_PRESETS: Record<string, ThemeConfig> = {
   },
 };
 
-export const DEFAULT_THEME: ThemeConfig = THEME_PRESETS.facility404;
+export const DEFAULT_THEME: ThemeConfig = THEME_PRESETS.blank;
 
 // ─── Runtime theme state ──────────────────────────────────────────────────────
 let _activeTheme: ThemeConfig = { ...DEFAULT_THEME };
