@@ -22,3 +22,9 @@
 - [x] Frontend: Replace all hardcoded Facility 404 strings with theme context values
 - [x] Frontend: AdminSettings — add Theme tab with preset picker, live editable fields, save button
 - [ ] GitHub: create template branch from standalone with blank theme as default
+
+## Feature: Invite URL param on Register page
+- [x] Frontend: Register page reads ?invite= from URL and pre-fills the invite code field
+- [x] Frontend: Show a banner/badge when arriving via invite link ("You were invited — code pre-filled")
+- [x] Backend: Add validateInvite public procedure — checks code exists, not used, not expired
+- [x] Frontend: Validate invite code on blur/before submit and show inline error if invalid
