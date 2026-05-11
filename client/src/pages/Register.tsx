@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -8,14 +8,51 @@ export default function Register() {
   const navigate = useNavigate();
   const theme = useTheme();
   const { refetch } = useAuth();
+  const [searchParams] = useSearchParams();
+
+  // Pre-fill invite code from ?invite= URL param
+  const urlInvite = searchParams.get("invite") ?? "";
+
   const [form, setForm] = useState({
     username: "",
     email: "",
     password: "",
     displayName: "",
-    inviteCode: "",
+    inviteCode: urlInvite,
   });
   const [error, setError] = useState("");
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteValid, setInviteValid] = useState<boolean | null>(urlInvite ? null : null);
+
+  // When the URL invite code changes (e.g. direct navigation), sync it into the form
+  useEffect(() => {
+    if (urlInvite) {
+      setForm((f) => ({ ...f, inviteCode: urlInvite }));
+    }
+  }, [urlInvite]);
+
+  // Validate invite code on the server whenever the field changes (debounced)
+  const validateInviteQuery = trpc.adminUsers.validateInvite.useQuery(
+    { code: form.inviteCode },
+    {
+      enabled: form.inviteCode.length > 0,
+      staleTime: 10_000,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  // Sync validation result into local state
+  useEffect(() => {
+    if (!form.inviteCode) {
+      setInviteValid(null);
+      setInviteError(null);
+      return;
+    }
+    if (validateInviteQuery.data) {
+      setInviteValid(validateInviteQuery.data.valid);
+      setInviteError(validateInviteQuery.data.valid ? null : (validateInviteQuery.data.reason ?? "Invalid invite code."));
+    }
+  }, [validateInviteQuery.data, form.inviteCode]);
 
   const register = trpc.auth.register.useMutation({
     onSuccess: () => {
@@ -27,6 +64,10 @@ export default function Register() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.inviteCode && inviteValid === false) {
+      setError(inviteError ?? "Invalid invite code.");
+      return;
+    }
     setError("");
     register.mutate({
       username: form.username,
@@ -37,6 +78,14 @@ export default function Register() {
     });
   };
 
+  const codeFieldBorderColor = form.inviteCode
+    ? inviteValid === true
+      ? "var(--teal)"
+      : inviteValid === false
+      ? "var(--red)"
+      : "var(--border)"
+    : "var(--border)";
+
   return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 52px)", padding: "2rem" }}>
       <div className="card" style={{ width: "100%", maxWidth: "420px" }}>
@@ -45,10 +94,38 @@ export default function Register() {
           <p style={{ margin: "0.35rem 0 0", color: "var(--text-muted)", fontSize: "0.875rem" }}>
             Join {theme.settingName} as a {theme.operatorLabel.toLowerCase()}
           </p>
-          <p style={{ margin: "0.35rem 0 0", color: "var(--teal)", fontSize: "0.8rem", fontFamily: "var(--font-mono)" }}>
-            First account registered becomes the admin
-          </p>
+          {!urlInvite && (
+            <p style={{ margin: "0.35rem 0 0", color: "var(--teal)", fontSize: "0.8rem", fontFamily: "var(--font-mono)" }}>
+              First account registered becomes the admin
+            </p>
+          )}
         </div>
+
+        {/* Invite banner — shown when arriving via invite link */}
+        {urlInvite && (
+          <div style={{
+            marginBottom: "1.25rem",
+            padding: "0.6rem 0.85rem",
+            borderRadius: "6px",
+            background: inviteValid === false ? "rgba(255,77,106,0.1)" : "rgba(20,184,166,0.1)",
+            border: `1px solid ${inviteValid === false ? "var(--red)" : "var(--teal-muted)"}`,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "0.8rem",
+            fontFamily: "var(--font-mono)",
+            color: inviteValid === false ? "var(--red)" : "var(--teal)",
+          }}>
+            <span>{inviteValid === false ? "✗" : "✓"}</span>
+            <span>
+              {inviteValid === false
+                ? inviteError ?? "Checking invite…"
+                : validateInviteQuery.isLoading
+                ? "Validating invite code…"
+                : "Invite code pre-filled and verified. You're good to go."}
+            </span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -98,14 +175,30 @@ export default function Register() {
             />
           </div>
           <div className="form-group">
-            <label>Invite Code (if required)</label>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              Invite Code {form.inviteCode && inviteValid === true && (
+                <span style={{ color: "var(--teal)", fontSize: "0.75rem", fontFamily: "var(--font-mono)" }}>✓ valid</span>
+              )}
+            </label>
             <input
               type="text"
               value={form.inviteCode}
-              onChange={(e) => setForm({ ...form, inviteCode: e.target.value })}
-              placeholder="XXXX-XXXX"
-              style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}
+              onChange={(e) => {
+                setForm({ ...form, inviteCode: e.target.value });
+                setInviteValid(null);
+                setInviteError(null);
+              }}
+              placeholder="Paste invite code here"
+              style={{
+                fontFamily: "var(--font-mono)",
+                letterSpacing: "0.05em",
+                borderColor: codeFieldBorderColor,
+                transition: "border-color 0.15s",
+              }}
             />
+            {inviteError && (
+              <div style={{ color: "var(--red)", fontSize: "0.8rem", marginTop: "0.25rem" }}>{inviteError}</div>
+            )}
           </div>
 
           {error && (
@@ -114,7 +207,12 @@ export default function Register() {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={register.isPending}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: "100%" }}
+            disabled={register.isPending || (form.inviteCode.length > 0 && inviteValid === false)}
+          >
             {register.isPending ? "Creating account…" : "Create Account"}
           </button>
         </form>

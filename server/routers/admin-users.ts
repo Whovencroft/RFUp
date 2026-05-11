@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { router, adminProcedure } from "../trpc.js";
+import { router, adminProcedure, publicProcedure } from "../trpc.js";
 import { db } from "../db/index.js";
 import { users, inviteCodes } from "../db/schema.js";
-import { eq, desc, isNull } from "drizzle-orm";
+import { eq, desc, isNull, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 
@@ -97,5 +97,28 @@ export const adminUsersRouter = router({
     .mutation(async ({ input }) => {
       await db.delete(inviteCodes).where(eq(inviteCodes.id, input.inviteId));
       return { success: true };
+    }),
+
+  // Public — validate an invite code without consuming it
+  validateInvite: publicProcedure
+    .input(z.object({ code: z.string() }))
+    .query(async ({ input }) => {
+      const rows = await db
+        .select({ id: inviteCodes.id, expiresAt: inviteCodes.expiresAt, usedAt: inviteCodes.usedAt })
+        .from(inviteCodes)
+        .where(
+          and(
+            eq(inviteCodes.code, input.code),
+            eq(inviteCodes.inviteType, "registration"),
+            isNull(inviteCodes.usedAt),
+          )
+        )
+        .limit(1);
+      if (rows.length === 0) return { valid: false, reason: "Invalid or already used invite code." };
+      const row = rows[0];
+      if (row.expiresAt && new Date(row.expiresAt) < new Date()) {
+        return { valid: false, reason: "This invite link has expired." };
+      }
+      return { valid: true, reason: null };
     }),
 });
