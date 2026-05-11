@@ -409,7 +409,17 @@ const THEME_FIELD_GROUPS: { label: string; fields: string[] }[] = [
 function ThemeTab() {
   const { data: currentTheme, refetch: refetchTheme } = trpc.theme.getTheme.useQuery();
   const { data: presets } = trpc.theme.listPresets.useQuery();
-  const applyPreset = trpc.theme.applyPreset.useMutation({ onSuccess: () => refetchTheme() });
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [presetApplied, setPresetApplied] = useState<string | null>(null);
+  const applyPreset = trpc.theme.applyPreset.useMutation({
+    onSuccess: (data) => {
+      // Immediately sync fields from the returned theme — no need to wait for refetch
+      setFields(data as unknown as Record<string, string>);
+      setPresetApplied(activePreset);
+      setTimeout(() => setPresetApplied(null), 2500);
+      refetchTheme();
+    },
+  });
   const updateTheme = trpc.theme.updateTheme.useMutation({ onSuccess: () => { refetchTheme(); setSaved(true); setTimeout(() => setSaved(false), 2500); } });
   const [fields, setFields] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
@@ -420,26 +430,43 @@ function ThemeTab() {
 
   const setField = (key: string, val: string) => setFields((f) => ({ ...f, [key]: val }));
 
+  const handleApplyPreset = (key: string) => {
+    setActivePreset(key);
+    applyPreset.mutate({ presetKey: key });
+  };
+
   return (
     <>
       <SectionCard title="Preset Themes">
         <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: 12 }}>
           Select a preset to load all labels and colors for that game setting. Customize individual fields below.
         </p>
+        {presetApplied && (
+          <div style={{ marginBottom: 12, padding: "6px 12px", background: "rgba(20,184,166,0.1)", border: "1px solid var(--teal-muted)", borderRadius: 6, color: "var(--teal)", fontSize: 13, fontFamily: "var(--font-mono)" }}>
+            ✓ Preset applied — fields updated below
+          </div>
+        )}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {presets?.map((p) => (
-            <button key={p.key} onClick={() => applyPreset.mutate({ presetKey: p.key })}
+          {presets?.map((p) => {
+            const isApplying = applyPreset.isPending && activePreset === p.key;
+            const isActive = fields.gameName === p.gameName;
+            return (
+            <button key={p.key} onClick={() => handleApplyPreset(p.key)}
+              disabled={applyPreset.isPending}
               style={{
-                padding: "10px 18px", background: "var(--bg-card)", border: `2px solid ${p.accentColor || "var(--border)"}`,
-                borderRadius: 8, color: "var(--text)", cursor: "pointer", textAlign: "left", minWidth: 160,
+                padding: "10px 18px",
+                background: isActive ? `${p.accentColor}18` : "var(--bg-card)",
+                border: `2px solid ${isActive ? p.accentColor : "var(--border)"}`,
+                borderRadius: 8, color: "var(--text)", cursor: applyPreset.isPending ? "wait" : "pointer", textAlign: "left", minWidth: 160,
               }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ width: 12, height: 12, borderRadius: "50%", background: p.accentColor || "#888", display: "inline-block" }} />
                 <strong style={{ fontSize: 13 }}>{p.gameName}</strong>
               </div>
-              <div style={{ color: "var(--text-dim)", fontSize: 11, marginTop: 4 }}>{p.tagline}</div>
+              <div style={{ color: "var(--text-dim)", fontSize: 11, marginTop: 4 }}>{isApplying ? "Applying…" : p.tagline}</div>
             </button>
-          ))}
+            );
+          })}
         </div>
       </SectionCard>
 
