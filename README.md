@@ -4,6 +4,8 @@
 
 A fully self-contained tabletop RPG for security teams. Zero external dependencies. Runs anywhere Node.js runs.
 
+**[Full self-hosting guide → HOSTING.md](HOSTING.md)**
+
 ---
 
 ## What it is
