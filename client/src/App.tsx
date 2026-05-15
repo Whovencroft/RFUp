@@ -27,52 +27,61 @@ function Nav() {
 
   return (
     <nav style={{
-      background: "var(--bg-card)",
-      borderBottom: "1px solid var(--border)",
-      padding: "0 1.5rem",
-      height: "52px",
+      background: "var(--color-surface)",
+      borderBottom: "1px solid var(--color-border-subtle)",
+      padding: "0 var(--space-lg)",
+      height: "56px",
       display: "flex",
       alignItems: "center",
-      gap: "1.5rem",
+      gap: "var(--space-sm)",
       position: "sticky",
       top: 0,
       zIndex: 100,
+      boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
     }}>
-      <Link to="/" style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--teal)", fontSize: "1rem", letterSpacing: "0.05em" }}>
+      <Link to="/" style={{
+        fontFamily: "var(--font-mono)",
+        fontWeight: 700,
+        color: "var(--color-primary)",
+        fontSize: "15px",
+        letterSpacing: "0.04em",
+        marginRight: "var(--space-sm)",
+        textDecoration: "none",
+      }}>
         {theme.settingShortName}
       </Link>
 
-      <div style={{ flex: 1, display: "flex", gap: "1rem", alignItems: "center" }}>
+      <div style={{ flex: 1, display: "flex", gap: "var(--space-xs)", alignItems: "center" }}>
         {user && (
           <>
-            <Link to="/sessions" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>{theme.sessionPluralLabel}</Link>
-            <Link to="/incidents" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>{theme.incidentPluralLabel}</Link>
-            <Link to="/operator" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>{theme.operatorFileLabel}</Link>
+            <Link to="/sessions" className="nav-item-idle">{theme.sessionPluralLabel}</Link>
+            <Link to="/incidents" className="nav-item-idle">{theme.incidentPluralLabel}</Link>
+            <Link to="/operator" className="nav-item-idle">{theme.operatorFileLabel}</Link>
             {user.role === "admin" && (
               <>
-                <Link to="/gm" style={{ color: "var(--teal)", fontSize: "0.875rem" }}>{theme.supervisorLabel}</Link>
-                <Link to="/admin/settings" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Settings</Link>
+                <Link to="/gm" className="nav-item-idle" style={{ color: "var(--color-tertiary)" }}>{theme.supervisorLabel}</Link>
+                <Link to="/admin/settings" className="nav-item-idle">Settings</Link>
               </>
             )}
           </>
         )}
       </div>
 
-      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "center" }}>
         {!isLoading && !user && (
           <>
-            <Link to="/login" className="btn btn-ghost" style={{ padding: "0.35rem 0.75rem" }}>Sign In</Link>
-            <Link to="/register" className="btn btn-primary" style={{ padding: "0.35rem 0.75rem" }}>Register</Link>
+            <Link to="/login" className="btn btn-ghost" style={{ height: "36px", fontSize: "13px" }}>Sign In</Link>
+            <Link to="/register" className="btn btn-primary" style={{ height: "36px", fontSize: "13px" }}>Register</Link>
           </>
         )}
         {user && (
           <>
-            <span style={{ color: "var(--text-muted)", fontSize: "0.8rem", fontFamily: "var(--font-mono)" }}>
+            <span style={{ color: "var(--color-on-muted)", fontSize: "13px", fontFamily: "var(--font-mono)" }}>
               {user.displayName ?? user.username}
             </span>
             <button
               className="btn btn-ghost"
-              style={{ padding: "0.35rem 0.75rem" }}
+              style={{ height: "36px", fontSize: "13px" }}
               onClick={() => logout.mutate()}
               disabled={logout.isPending}
             >
@@ -95,7 +104,7 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
 
 export default function App() {
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--color-neutral)" }}>
       <Nav />
       <main style={{ flex: 1 }}>
         <Routes>

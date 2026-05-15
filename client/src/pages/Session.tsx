@@ -71,8 +71,9 @@ function MessageBubble({ msg, currentUserId }: { msg: Message; currentUserId: nu
       </div>
       <div style={{
         maxWidth: "75%",
-        background: isOwn ? "var(--teal-muted)" : isAI ? "var(--bg-muted)" : "var(--bg-card)",
-        border: `1px solid ${isAI ? "var(--teal-muted)" : isGM ? "rgba(255,209,102,0.3)" : "var(--border)"}`,
+        background: isOwn ? "var(--color-primary-muted)" : isAI ? "rgba(124,58,237,0.12)" : "rgba(226,232,240,0.06)",
+        border: `1px solid ${isAI ? "rgba(124,58,237,0.3)" : isGM ? "rgba(245,158,11,0.35)" : "rgba(203,213,225,0.1)"}`,
+        color: "var(--color-on-inverse)",
         borderRadius: "8px",
         padding: "0.6rem 0.85rem",
         fontSize: "0.875rem",
@@ -199,20 +200,20 @@ export default function Session() {
   if (!session) return <div style={{ padding: "2rem", color: "var(--text-muted)" }}>Loading session…</div>;
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 52px)" }}>
+    <div style={{ display: "flex", height: "calc(100vh - 56px)", background: "var(--color-surface-inverse)" }}>
       {/* Left panel — players */}
       <div style={{
         width: "220px",
         flexShrink: 0,
-        background: "var(--bg-card)",
-        borderRight: "1px solid var(--border)",
+        background: "var(--color-primary)",
+        borderRight: "1px solid rgba(203,213,225,0.1)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
       }}>
-        <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>{theme.sessionLabel}</div>
-          <div style={{ fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.2 }}>{session.title}</div>
+        <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid rgba(203,213,225,0.1)" }}>
+          <div style={{ fontSize: "0.7rem", color: "var(--color-on-inverse)", opacity: 0.6, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>{theme.sessionLabel}</div>
+          <div style={{ fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.2, color: "var(--color-on-inverse)" }}>{session.title}</div>
           <div style={{ marginTop: "0.35rem" }}>
             {session.status === "active" ? (
               <span className="badge badge-teal">Active</span>
@@ -225,7 +226,7 @@ export default function Session() {
         </div>
 
         <div style={{ padding: "0.75rem 1rem", flex: 1, overflowY: "auto" }}>
-          <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+          <div style={{ fontSize: "0.7rem", color: "var(--color-on-inverse)", opacity: 0.6, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
             {theme.operatorPluralLabel} ({players?.filter((p) => p.isActive).length ?? 0})
           </div>
           {players?.filter((p) => p.isActive).map((p) => (
@@ -234,7 +235,7 @@ export default function Session() {
                 {p.charAvatarUrl ? (
                   <img src={p.charAvatarUrl} alt="" style={{ width: "28px", height: "28px", borderRadius: "4px", objectFit: "cover", border: "1px solid var(--border)" }} />
                 ) : (
-                  <div style={{ width: "28px", height: "28px", borderRadius: "4px", background: "var(--bg-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "var(--text-dim)" }}>
+                  <div style={{ width: "28px", height: "28px", borderRadius: "4px", background: "var(--color-primary-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "var(--color-on-inverse)" }}>
                     {(p.displayName ?? p.username ?? "?")[0].toUpperCase()}
                   </div>
                 )}
@@ -273,7 +274,7 @@ export default function Session() {
 
         {/* Join prompt */}
         {!joined && session.status !== "completed" && (
-          <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--border)", background: "var(--bg-card)" }}>
+          <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid rgba(203,213,225,0.1)", background: "var(--color-primary)" }}>
             {!showJoinForm ? (
               <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
                 <span style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>You haven't joined this session yet.</span>
@@ -308,7 +309,7 @@ export default function Session() {
 
         {/* Input */}
         {joined && session.status !== "completed" && (
-          <div style={{ padding: "0.75rem 1.5rem", borderTop: "1px solid var(--border)", background: "var(--bg-card)" }}>
+          <div style={{ padding: "0.75rem 1.5rem", borderTop: "1px solid rgba(203,213,225,0.1)", background: "var(--color-primary)" }}>
             {/* Skill selector */}
             {char?.skills && char.skills.length > 0 && (
               <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
@@ -365,7 +366,7 @@ export default function Session() {
         )}
 
         {session.status === "completed" && (
-          <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+          <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid rgba(203,213,225,0.1)", background: "var(--color-primary)", textAlign: "center", color: "var(--color-on-inverse)", opacity: 0.7, fontSize: "0.875rem" }}>
             This session has ended.
           </div>
         )}
