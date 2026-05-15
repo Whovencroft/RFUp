@@ -87,7 +87,7 @@ export default function Register() {
     : "var(--border)";
 
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 52px)", padding: "2rem" }}>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 56px)", padding: "2rem" }}>
       <div className="card" style={{ width: "100%", maxWidth: "420px" }}>
         <div style={{ marginBottom: "1.5rem" }}>
           <h2 style={{ margin: 0, fontSize: "1.25rem" }}>Create Account</h2>
@@ -107,8 +107,8 @@ export default function Register() {
             marginBottom: "1.25rem",
             padding: "0.6rem 0.85rem",
             borderRadius: "6px",
-            background: inviteValid === false ? "rgba(255,77,106,0.1)" : "rgba(20,184,166,0.1)",
-            border: `1px solid ${inviteValid === false ? "var(--red)" : "var(--teal-muted)"}`,
+            background: inviteValid === false ? "#fee2e2" : "#dcfce7",
+            border: `1px solid ${inviteValid === false ? "var(--color-error)" : "var(--color-success)"}`,
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
@@ -202,7 +202,7 @@ export default function Register() {
           </div>
 
           {error && (
-            <div style={{ color: "var(--red)", fontSize: "0.875rem", marginBottom: "1rem", padding: "0.5rem 0.75rem", background: "rgba(255,77,106,0.1)", borderRadius: "6px" }}>
+            <div style={{ color: "var(--color-error)", fontSize: "0.875rem", marginBottom: "1rem", padding: "0.5rem 0.75rem", background: "#fee2e2", borderRadius: "var(--radius-md)" }}>
               {error}
             </div>
           )}

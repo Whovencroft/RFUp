@@ -28,3 +28,16 @@
 - [x] Frontend: Show a banner/badge when arriving via invite link ("You were invited — code pre-filled")
 - [x] Backend: Add validateInvite public procedure — checks code exists, not used, not expired
 - [x] Frontend: Validate invite code on blur/before submit and show inline error if invalid
+
+## Feature: Apply DESIGN.md Visual System
+
+- [x] Copy DESIGN.md from origin/main into repo root
+- [x] Update index.css with DESIGN.md color tokens, typography (Inter + JetBrains Mono), spacing scale
+- [x] Update nav bar to use DESIGN.md nav-item-active/idle tokens and primary color
+- [x] Update cards/panels to use DESIGN.md surface/card tokens
+- [x] Update buttons to use DESIGN.md button-primary/secondary/accent/danger tokens
+- [x] Update inputs to use DESIGN.md input tokens
+- [x] Update status chips to use DESIGN.md status-success/warning/error/info/neutral tokens
+- [x] Update game HUD panels (session view, GM panel) to use game-hud-panel and game-stat tokens
+- [x] Ensure focus rings are visible on all interactive controls
+- [x] Verify readable contrast throughout (no invisible text)

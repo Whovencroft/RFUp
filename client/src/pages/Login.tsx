@@ -26,7 +26,7 @@ export default function Login() {
   };
 
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 52px)", padding: "2rem" }}>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 56px)", padding: "2rem" }}>
       <div className="card" style={{ width: "100%", maxWidth: "400px" }}>
         <div style={{ marginBottom: "1.5rem" }}>
           <h2 style={{ margin: 0, fontSize: "1.25rem" }}>Sign In</h2>
@@ -59,7 +59,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <div style={{ color: "var(--red)", fontSize: "0.875rem", marginBottom: "1rem", padding: "0.5rem 0.75rem", background: "rgba(255,77,106,0.1)", borderRadius: "6px" }}>
+            <div style={{ color: "var(--color-error)", fontSize: "0.875rem", marginBottom: "1rem", padding: "0.5rem 0.75rem", background: "#fee2e2", borderRadius: "var(--radius-md)" }}>
               {error}
             </div>
           )}
