@@ -529,6 +529,452 @@ Agent and tool layout:
 - Use status chips and compact telemetry only where they reduce ambiguity.
 - Give long-running processes a visible state region rather than burying state in logs.
 
+## Human-Centered Layout Protocol
+
+Interfaces must be designed for human comprehension, not maximum information exposure.
+
+The goal is not to show everything at once. The goal is to help the user understand what matters, decide what to do next, and access deeper information when needed.
+
+A good screen should feel:
+
+- clear before it feels complete
+- calm before it feels powerful
+- structured before it feels dense
+- useful before it feels decorative
+- navigable before it feels impressive
+
+### Core Principle
+
+Do not pile all available information onto the screen.
+
+Every screen should answer a small number of human questions first:
+
+1. Where am I?
+2. What is happening?
+3. What matters most right now?
+4. What can I do next?
+5. Where can I go for more detail?
+
+If a screen cannot answer these questions quickly, the layout is not finished.
+
+### Information Priority
+
+Before designing a screen, classify information into five levels:
+
+1. **Primary:** What the user came here to see or do.
+2. **Secondary:** Context that helps interpret the primary information.
+3. **Tertiary:** Useful supporting detail.
+4. **Reference:** Information that should be available but not prominent.
+5. **Debug/Advanced:** Information only needed for inspection, troubleshooting, power users, or edge cases.
+
+Only primary and important secondary information should be visible by default.
+
+Tertiary, reference, debug, and advanced information should usually be placed behind:
+
+- expandable sections
+- tabs
+- drawers
+- detail panels
+- hover/focus tooltips
+- “View details” actions
+- secondary pages
+- inspector panels
+- filters or search
+
+The agent must not treat “available data” as “visible data.”
+
+### Screen Density Rules
+
+A normal screen should have one dominant purpose.
+
+Avoid creating screens where:
+
+- every component has equal visual weight
+- every number is visible at once
+- every action is a button
+- every category is a table
+- every process state is a badge
+- every possible detail appears above the fold
+
+A screen may be dense, but it must not be visually flat.
+
+Density is acceptable when hierarchy is strong. Density is not acceptable when the user has to search randomly for meaning.
+
+### Visual Hierarchy
+
+Each screen should have a clear hierarchy:
+
+1. Page title or current context.
+2. Primary summary or main working area.
+3. Most important action or next step.
+4. Supporting details.
+5. Secondary actions.
+6. Advanced, diagnostic, or archival information.
+
+The user’s eye should know where to land first.
+
+Use hierarchy through:
+
+- size
+- spacing
+- grouping
+- alignment
+- contrast
+- proximity
+- sequence
+- restrained color
+- component weight
+
+Do not rely on color alone to establish hierarchy.
+
+### Layout Composition
+
+Prefer composed layouts over raw lists of components.
+
+Good layouts use:
+
+- clear sections
+- meaningful whitespace
+- grouped controls
+- readable line lengths
+- consistent alignment
+- intentional empty space
+- progressive disclosure
+- stable navigation regions
+- limited competing focal points
+
+Avoid:
+
+- wall-to-wall cards
+- endless tables
+- ungrouped buttons
+- chart grids without explanation
+- forms with no visual rhythm
+- dashboards where every metric is equally loud
+- screens that require the user to understand implementation structure
+
+The UI should be organized around the user’s mental model, not the database schema, file structure, or internal object model.
+
+### Progressive Disclosure
+
+Use progressive disclosure by default.
+
+Show the user the most useful summary first. Let them drill down when they need more.
+
+Examples:
+
+- Show a project status summary first, then allow log expansion.
+- Show current HP/MP/status first, then allow detailed stat inspection.
+- Show top errors first, then allow full trace inspection.
+- Show active tasks first, then allow archived task browsing.
+- Show order summary first, then allow line-item expansion.
+- Show recommended actions first, then allow advanced controls.
+
+A screen should not expose advanced controls just because they exist.
+
+### Tables
+
+Tables are for comparison, scanning, and structured reference.
+
+Use a table when the user needs to compare rows across consistent columns.
+
+Do not use a table when:
+
+- the information is narrative
+- only one item is being shown
+- the fields are highly uneven
+- the main need is decision-making rather than comparison
+- a card, summary, timeline, stepper, or detail view would be clearer
+
+Tables should have:
+
+- clear column names
+- limited visible columns
+- meaningful default sorting
+- readable cell content
+- visible units where needed
+- compact but not cramped spacing
+- secondary details hidden or expandable
+
+Avoid giant tables as the default view unless the product is explicitly a spreadsheet, database browser, inventory manager, or analytics tool.
+
+### Charts
+
+Charts should answer a specific visual question.
+
+Do not add charts just to make a screen look analytical.
+
+Use charts when they clarify:
+
+- change over time
+- proportions
+- comparisons
+- distribution
+- relationships
+- trends
+- outliers
+
+Every chart should have a reason to exist. The user should be able to understand why it is there without guessing.
+
+Avoid:
+
+- too many charts on one screen
+- unlabeled charts
+- charts without a takeaway
+- charts that duplicate nearby tables
+- decorative charts with no decision value
+- mixing many chart types without a reason
+
+When possible, pair a chart with a short plain-language interpretation.
+
+### Buttons and Actions
+
+Not every possible action should be a visible button.
+
+Actions should be organized by importance:
+
+1. Primary action.
+2. Secondary actions.
+3. Contextual actions.
+4. Advanced actions.
+5. Destructive actions.
+
+A screen should usually have only one primary action.
+
+Secondary and advanced actions may be placed in:
+
+- menus
+- overflow controls
+- detail panels
+- command palettes
+- contextual regions
+- secondary pages
+
+Destructive actions must be visually distinct and should not compete with normal workflow actions.
+
+Avoid rows of many equally weighted buttons.
+
+### Forms
+
+Forms should feel like a guided path, not a data dump.
+
+Group related fields into meaningful sections.
+
+Use:
+
+- clear labels
+- short helper text
+- sensible defaults
+- visible required states
+- inline validation
+- section summaries when forms are long
+
+Avoid:
+
+- long unbroken forms
+- unclear optional fields
+- placeholder-only labels
+- presenting rare fields as if they are common
+- making the user configure things the system can infer safely
+
+If a form has many advanced options, collapse them by default.
+
+### Cards
+
+Cards should represent meaningful objects or decisions.
+
+Do not use cards merely to decorate every piece of information.
+
+Good card uses:
+
+- project summary
+- character summary
+- task summary
+- product summary
+- alert summary
+- current state summary
+- selectable option
+
+Poor card uses:
+
+- one card per minor field
+- too many cards in a uniform grid
+- cards with no clear heading
+- cards that all compete equally
+- cards that hide relationships between information
+
+A card should usually contain:
+
+- title
+- key state or value
+- short supporting detail
+- one obvious next action or affordance
+
+### Empty Space
+
+Empty space is part of the design.
+
+Do not fill empty space just because data exists.
+
+Use empty space to:
+
+- separate groups
+- make hierarchy readable
+- reduce fatigue
+- create focus
+- make actions easier to find
+- prevent the screen from feeling urgent or chaotic
+
+A sparse screen with a clear purpose is better than a full screen with no hierarchy.
+
+### Human Scan Pattern
+
+Design screens for scanning before reading.
+
+A user should be able to quickly identify:
+
+- the current section
+- the main object or task
+- the current state
+- the next useful action
+- warnings or blockers
+- where details live
+
+Use short labels, strong grouping, and predictable placement.
+
+Do not require users to read paragraphs of UI text before understanding the screen.
+
+### Aesthetic Restraint
+
+The interface should be aesthetically pleasing, but not ornamental at the expense of usability.
+
+Use visual polish through:
+
+- spacing
+- alignment
+- type hierarchy
+- consistent radius
+- restrained color
+- clean grouping
+- readable contrast
+- purposeful motion
+- balanced density
+
+Avoid using decoration to solve layout problems.
+
+Do not add:
+
+- unnecessary gradients
+- meaningless icons
+- decorative charts
+- excessive shadows
+- competing accent colors
+- animation that distracts from the task
+- visual effects that reduce readability
+
+### Agent Layout Decision Rule
+
+When creating or revising UI, the agent must decide what to omit, defer, collapse, or summarize.
+
+The agent should not ask, “How can I display all of this?”
+
+The agent should ask:
+
+1. What is the user trying to understand or do?
+2. What information is needed immediately?
+3. What information can be summarized?
+4. What information can be hidden until requested?
+5. What action should be easiest?
+6. What action should be possible but less prominent?
+7. What information is advanced, diagnostic, or rare?
+8. What can be removed from this screen entirely?
+
+The agent should prefer a clear first version over a complete but overwhelming version.
+
+### Default Screen Pattern
+
+When unsure, use this structure:
+
+1. **Header:** Where the user is and what object or workflow they are viewing.
+2. **Primary summary:** The most important state, result, or decision.
+3. **Main working area:** The core content or interaction.
+4. **Context panel:** Supporting details, filters, metadata, or status.
+5. **Progressive detail:** Expandable advanced information.
+6. **Action area:** One primary action, a few secondary actions, and hidden advanced actions.
+
+This pattern may be adapted for games, dashboards, tools, forms, and documents.
+
+### Project-Specific Application
+
+For games:
+
+- Show the current decision first.
+- Keep available commands clear.
+- Keep current actor, target, resource state, and consequences visible.
+- Hide deep stats unless the player asks for inspection.
+- Avoid covering the playfield with panels unless the player is in a menu state.
+
+For dashboards:
+
+- Start with a summary and the few most important changes.
+- Use charts only when trends or comparisons matter.
+- Use tables for drill-down, not as the first emotional impression.
+- Make alerts and blockers visually distinct.
+
+For developer tools:
+
+- Separate current state, commands, output, logs, and errors.
+- Show the useful summary before the raw log.
+- Keep paths, IDs, commands, and metrics monospaced.
+- Hide verbose diagnostics by default.
+
+For documentation:
+
+- Prioritize readable text width.
+- Use headings, examples, and callouts.
+- Avoid turning every concept into a component.
+- Keep navigation stable and calm.
+
+For agent interfaces:
+
+- Show current task, state, next action, blockers, and recent output.
+- Keep full reasoning logs, raw traces, and tool dumps collapsed unless requested.
+- Distinguish running, blocked, completed, failed, and waiting states clearly.
+
+### Anti-Clutter Requirements
+
+Before finalizing a layout, remove or demote anything that does not directly support the screen’s purpose.
+
+The agent should check:
+
+- Can this be summarized?
+- Can this be moved to details?
+- Can this be hidden until clicked?
+- Can this be grouped with related information?
+- Can this become a secondary page?
+- Can this be represented with text instead of a chart?
+- Can this be represented with a short summary instead of a table?
+- Can this action be moved into a menu?
+- Can this button become a contextual action?
+
+A finished screen should not feel like every requirement was pasted onto the canvas.
+
+### Validation Checklist
+
+Before considering UI complete, verify:
+
+- The screen has one clear main purpose.
+- The most important information is visible first.
+- The user is not overwhelmed by equal-weight sections.
+- Buttons are limited and prioritized.
+- Tables are used only when comparison or scanning is needed.
+- Charts are used only when they answer a visual question.
+- Advanced information is collapsed or moved out of the main path.
+- Empty space is preserved intentionally.
+- The layout follows the user’s task flow, not the data model.
+- The result is understandable at a glance, then useful on deeper inspection.
+
+
 ## Elevation & Depth
 
 Depth should be functional, not decorative. This system prefers tonal separation, border contrast, spacing, and grouping before heavy shadows.
